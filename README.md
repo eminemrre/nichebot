@@ -1,197 +1,151 @@
 <div align="center">
 
-# 🤖 NicheBot
+# NicheBot
 
-**AI-Powered Social Media Content Assistant**
+**Self-hosted AI content assistant for Telegram-first workflows.**
 
-Generate, preview, and auto-publish niche-specific content to Twitter/X — all from Telegram.
+Generate niche content, review it, and optionally publish to Twitter/X from one command-driven bot.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](Dockerfile)
-[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)]()
+![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Features](#-features) · [Quick Start](#-quick-start) · [Cross-Platform](#-cross-platform) · [Commands](#-telegram-commands) · [Docker](#-docker-deployment)
+[Overview](#overview) · [Quick Value in 5 Minutes](#quick-value-in-5-minutes) · [Key Features](#key-features) · [Architecture](#architecture-and-tech-stack) · [Quick Start](#quick-start) · [Deployment Status](#deployment-status) · [Commands](#telegram-commands)
 
 </div>
 
 ---
 
-## ✨ Features
+## Overview
 
-| Feature | Description |
-|---------|-------------|
-| 🧠 **Multi-LLM** | OpenAI, Anthropic Claude, DeepSeek — bring your own API key |
-| 📊 **Profile Analysis** | Analyze any Twitter profile and get personalized content strategy |
-| 🏷 **Niche Management** | Add multiple topic niches, each with custom tone |
-| 📝 **Smart Generation** | AI-powered tweets & threads with duplicate prevention |
-| 👀 **Preview Flow** | Preview → Edit → Approve/Reject before publishing |
-| ⏰ **Auto-Scheduling** | Cron-based auto-posting at your preferred times |
-| 🐦 **Twitter/X** | Direct tweet and thread publishing via API v2 |
-| 🌍 **Multi-Language** | Bot interface in English & Turkish (extensible) |
-| 🔒 **Secure** | Rate limiting, input sanitization, API key redaction in logs |
-| 🐳 **Docker Ready** | One-command deployment with `docker compose up` |
+NicheBot is a Node.js Telegram bot for creators and operators who want a controlled, self-hosted content workflow.
 
-## 📋 Requirements
+It supports:
 
-- **Node.js 18+** (or Docker)
-- **Telegram Bot Token** — get from [@BotFather](https://t.me/BotFather)
-- **LLM API Key** — choose one: [OpenAI](https://platform.openai.com/api-keys) / [Anthropic](https://console.anthropic.com/) / [DeepSeek](https://platform.deepseek.com/)
-- **Twitter API Keys** *(optional)* — [Developer Portal](https://developer.twitter.com/)
+- niche/topic management,
+- LLM-backed text generation,
+- human approval before publish,
+- optional Twitter/X posting,
+- and time-based auto-post scheduling.
 
-## 🚀 Quick Start
+## Quick Value in 5 Minutes
+
+1. Clone and install dependencies.
+2. Copy `.env.example` to `.env`.
+3. Set `TELEGRAM_BOT_TOKEN` and one provider key (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `DEEPSEEK_API_KEY`).
+4. Run `npm start`.
+5. In Telegram, send `/start`, then `/niche <topic>`, then `/uret`.
+
+## Key Features
+
+- Multi-LLM support
+: Use OpenAI, Anthropic, or DeepSeek with your own keys.
+
+- Niche and tone control
+: Keep separate content directions per topic.
+
+- Review-before-publish flow
+: Preview, approve, reject, and regenerate.
+
+- Optional Twitter/X publishing
+: Post tweets/threads through API credentials.
+
+- Scheduling automation
+: Define posting times with cron-based execution.
+
+- Operational safety
+: Rate limiting, sanitized inputs, and secret redaction in logs.
+
+## Architecture and Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Bot Runtime | Node.js |
+| Chat Interface | Telegram Bot API |
+| AI Providers | OpenAI / Anthropic / DeepSeek |
+| Persistence | SQLite (`better-sqlite3`) |
+| Scheduling | `node-cron` |
+| Social Publishing | `twitter-api-v2` |
+| Deployment | Native (Win/macOS/Linux) + Docker |
+
+## Quick Start
+
+### Requirements
+
+- Node.js 18+ (or Docker)
+- Telegram bot token from [@BotFather](https://t.me/BotFather)
+- At least one LLM API key
+- Optional Twitter API credentials
+
+### Local run
 
 ```bash
-# Clone
 git clone https://github.com/eminemre35/nichebot.git
 cd nichebot
-
-# Install
 npm install
-
-# Configure
 cp .env.example .env
-nano .env  # Add your API keys
-
-# Run
 npm start
 ```
 
-Then open Telegram and send `/start` to your bot!
-
-## 🐳 Docker Deployment
+### Docker run
 
 ```bash
-# Configure
 cp .env.example .env
-nano .env
-
-# Run (builds + starts automatically)
 docker compose up -d
-
-# View logs
 docker compose logs -f
-
-# Stop
-docker compose down
 ```
 
-## 💻 Cross-Platform
+## Deployment Status
 
-NicheBot runs natively on **Windows**, **macOS**, and **Linux** — no Docker required.
+| Target | Status | Notes |
+|---|---|---|
+| Local execution | Ready | Works on Windows, macOS, Linux |
+| Docker deployment | Ready | `docker compose up -d` |
+| Managed cloud | Self-hosted only | No vendor lock-in by default |
 
-### Windows
-```batch
-:: Double-click nichebot.bat or run:
-nichebot.bat
-```
-
-### macOS / Linux
-```bash
-chmod +x nichebot.sh
-./nichebot.sh
-```
-
-### Global Install (any OS)
-```bash
-npm install -g .
-nichebot
-```
-
-> On first run, NicheBot auto-creates `.env` from the template and guides you through setup.
-
-## 📱 Telegram Commands
+## Telegram Commands
 
 | Command | Description |
-|---------|-------------|
-| `/start` | Welcome message + connection status |
-| `/niche <topic>` | Add a content niche |
+|---|---|
+| `/start` | Welcome and connection status |
+| `/niche <topic>` | Add a niche |
 | `/nisler` | List active niches |
 | `/sil <topic>` | Remove a niche |
-| `/uret` | Generate a tweet + preview |
-| `/uret <topic>` | Generate for specific niche |
-| `/thread <count>` | Generate a thread (default: 4, max: 10) |
-| `/onayla` | Approve and publish to Twitter |
+| `/uret` | Generate content with preview |
+| `/uret <topic>` | Generate for a specific niche |
+| `/thread <count>` | Generate a thread (default 4, max 10) |
+| `/onayla` | Approve and publish |
 | `/reddet` | Reject and regenerate |
 | `/analiz <user>` | Analyze a Twitter profile |
-| `/zamanlama <time>` | Set auto-post schedule (e.g., `09:00,18:00`) |
-| `/zamanlama kapat` | Stop all scheduled posts |
-| `/durum` | View statistics |
-| `/dil <tr\|en>` | Change bot language |
+| `/zamanlama <time>` | Set posting times (e.g. `09:00,18:00`) |
+| `/zamanlama kapat` | Disable scheduling |
+| `/durum` | Show usage stats |
+| `/dil <tr|en>` | Change bot language |
 
-## 🏗 Architecture
+## Roadmap
 
-```
-┌─────────────┐     ┌────────────┐     ┌──────────────────┐
-│  Telegram    │────▶│  NicheBot  │────▶│  LLM Provider    │
-│  (User)      │◀────│  Bot Core  │◀────│  OpenAI/Claude/  │
-└─────────────┘     │            │     │  DeepSeek        │
-                    │  ┌────────┐│     └──────────────────┘
-                    │  │ SQLite ││
-                    │  │  DB    ││     ┌──────────────────┐
-                    │  └────────┘│────▶│  Twitter/X API   │
-                    │  ┌────────┐│     │  v2              │
-                    │  │ Cron   ││     └──────────────────┘
-                    │  │Scheduler│
-                    └──┴────────┘┘
-```
+- Expand provider-level generation controls.
+- Improve template packs for niche-specific output styles.
+- Add richer admin observability for scheduled runs.
 
-## ⚙️ Configuration
+## Contributing
 
-See [`.env.example`](.env.example) for all available settings:
+Contributions are welcome.
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `TELEGRAM_BOT_TOKEN` | ✅ | — | Bot token from @BotFather |
-| `TELEGRAM_ALLOWED_USER_ID` | ❌ | all | Restrict to single user |
-| `LLM_PROVIDER` | ✅ | openai | `openai`, `anthropic`, `deepseek` |
-| `OPENAI_API_KEY` | ✅* | — | Required if provider is openai |
-| `TWITTER_API_KEY` | ❌ | — | Enables publishing |
-| `DEFAULT_LANGUAGE` | ❌ | en | Bot language (`tr` or `en`) |
-| `MAX_DAILY_POSTS` | ❌ | 5 | Auto-post daily limit |
-| `LOG_LEVEL` | ❌ | info | `error`, `warn`, `info`, `debug` |
-| `TZ` | ❌ | UTC | Timezone for scheduled posts |
+- Start with [CONTRIBUTING.md](CONTRIBUTING.md).
+- Open an issue for behavior-changing proposals.
+- Submit PRs with clear rationale and testing notes.
 
-## 🖥 VPS Deployment (PM2)
+## License
 
-```bash
-# Install PM2 globally
-npm install -g pm2
-
-# Start NicheBot
-pm2 start src/index.js --name nichebot
-
-# Auto-restart on reboot
-pm2 startup
-pm2 save
-
-# Monitor
-pm2 monit
-```
-
-## 🔒 Security
-
-- **User Authentication**: Only allowed Telegram user IDs can control the bot
-- **Rate Limiting**: 3-second cooldown per command to prevent API abuse
-- **Input Sanitization**: All user inputs are validated and sanitized
-- **API Key Protection**: Keys are automatically redacted from log files
-- **Retry Mechanism**: Exponential backoff on API failures
-
-## 🤝 Contributing
-
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
-## 📄 License
-
-[MIT License](LICENSE) — use freely, modify, distribute.
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
 
 ---
 
 <div align="center">
 
-**Built with ❤️ for content creators worldwide**
-
-⭐ Star this repo if you find it useful!
+Built for creators who need control, speed, and self-hosted flexibility.
 
 </div>
