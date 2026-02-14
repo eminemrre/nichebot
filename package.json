@@ -3,6 +3,9 @@
   "version": "1.1.0",
   "description": "Open-source AI-powered social media content bot. Generate niche content for Twitter/X via Telegram. Bring your own API keys.",
   "main": "src/index.js",
+  "bin": {
+    "nichebot": "src/cli.js"
+  },
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js"
@@ -16,7 +19,8 @@
     "openai",
     "anthropic",
     "deepseek",
-    "self-hosted"
+    "self-hosted",
+    "cli"
   ],
   "author": "eminemre35",
   "license": "MIT",

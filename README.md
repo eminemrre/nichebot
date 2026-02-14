@@ -9,9 +9,10 @@ Generate, preview, and auto-publish niche-specific content to Twitter/X — all 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](Dockerfile)
+[![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)]()
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Features](#-features) · [Quick Start](#-quick-start) · [Commands](#-telegram-commands) · [Docker](#-docker-deployment) · [Contributing](#-contributing)
+[Features](#-features) · [Quick Start](#-quick-start) · [Cross-Platform](#-cross-platform) · [Commands](#-telegram-commands) · [Docker](#-docker-deployment)
 
 </div>
 
@@ -75,6 +76,30 @@ docker compose logs -f
 # Stop
 docker compose down
 ```
+
+## 💻 Cross-Platform
+
+NicheBot runs natively on **Windows**, **macOS**, and **Linux** — no Docker required.
+
+### Windows
+```batch
+:: Double-click nichebot.bat or run:
+nichebot.bat
+```
+
+### macOS / Linux
+```bash
+chmod +x nichebot.sh
+./nichebot.sh
+```
+
+### Global Install (any OS)
+```bash
+npm install -g .
+nichebot
+```
+
+> On first run, NicheBot auto-creates `.env` from the template and guides you through setup.
 
 ## 📱 Telegram Commands
 
