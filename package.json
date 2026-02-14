@@ -1,7 +1,7 @@
 {
   "name": "nichebot",
-  "version": "1.0.0",
-  "description": "Açık kaynak, AI destekli sosyal medya içerik üretim botu. Kendi API anahtarlarınızı kullanarak Twitter/X için otomatik niş içerik üretin.",
+  "version": "1.1.0",
+  "description": "Open-source AI-powered social media content bot. Generate niche content for Twitter/X via Telegram. Bring your own API keys.",
   "main": "src/index.js",
   "scripts": {
     "start": "node src/index.js",

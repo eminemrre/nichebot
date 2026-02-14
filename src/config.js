@@ -36,7 +36,13 @@ const config = {
 
     // Genel
     defaultLanguage: process.env.DEFAULT_LANGUAGE || 'tr',
-    maxDailyPosts: parseInt(process.env.MAX_DAILY_POSTS) || 5,
+    maxDailyPosts: (() => {
+        const val = parseInt(process.env.MAX_DAILY_POSTS);
+        return Number.isFinite(val) && val > 0 ? val : 5;
+    })(),
+    logLevel: process.env.LOG_LEVEL || 'info',
+    timezone: process.env.TZ || 'UTC',
+    nodeEnv: process.env.NODE_ENV || 'development',
 };
 
 /**
@@ -49,37 +55,41 @@ function validateConfig() {
 
     // Telegram zorunlu
     if (!config.telegram.token) {
-        errors.push('❌ TELEGRAM_BOT_TOKEN gerekli. @BotFather\'dan alabilirsiniz.');
+        errors.push('TELEGRAM_BOT_TOKEN required. Get it from @BotFather.');
     }
 
-    // LLM zorunlu — en az biri
-    const provider = config.llm.provider;
-    const providerConfig = config.llm[provider];
+    if (config.telegram.allowedUserId && isNaN(config.telegram.allowedUserId)) {
+        errors.push('TELEGRAM_ALLOWED_USER_ID must be a number.');
+    }
 
-    if (!providerConfig) {
-        errors.push(`❌ Geçersiz LLM_PROVIDER: "${provider}". Seçenekler: openai, anthropic, deepseek`);
-    } else if (!providerConfig.apiKey) {
-        errors.push(`❌ ${provider.toUpperCase()}_API_KEY gerekli. LLM_PROVIDER="${provider}" seçili ama API key yok.`);
+    // LLM zorunlu
+    const provider = config.llm.provider;
+    const validProviders = ['openai', 'anthropic', 'deepseek'];
+
+    if (!validProviders.includes(provider)) {
+        errors.push(`Invalid LLM_PROVIDER: "${provider}". Options: ${validProviders.join(', ')}`);
+    } else {
+        const providerConfig = config.llm[provider];
+        if (!providerConfig?.apiKey) {
+            errors.push(`${provider.toUpperCase()}_API_KEY required. LLM_PROVIDER="${provider}" is set but no API key found.`);
+        }
     }
 
     // Twitter opsiyonel
     const tw = config.twitter;
-    const hasAnyTwitter = tw.apiKey || tw.apiSecret || tw.accessToken || tw.accessSecret;
-    const hasAllTwitter = tw.apiKey && tw.apiSecret && tw.accessToken && tw.accessSecret;
+    const twitterKeys = [tw.apiKey, tw.apiSecret, tw.accessToken, tw.accessSecret];
+    const hasAny = twitterKeys.some(Boolean);
+    const hasAll = twitterKeys.every(Boolean);
 
-    if (hasAnyTwitter && !hasAllTwitter) {
-        errors.push('❌ Twitter API: 4 anahtarın hepsi gerekli (API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_SECRET)');
+    if (hasAny && !hasAll) {
+        errors.push('Twitter API: All 4 keys required (API_KEY, API_SECRET, ACCESS_TOKEN, ACCESS_SECRET)');
     }
 
-    if (!hasAnyTwitter) {
-        warnings.push('⚠️  Twitter API bağlı değil. Bot içerik üretir ama paylaşamaz. Twitter\'a paylaşmak için .env dosyasına Twitter anahtarlarını ekleyin.');
+    if (!hasAny) {
+        warnings.push('Twitter API not configured. Bot will generate content but cannot publish. Add Twitter keys to .env to enable posting.');
     }
 
-    return {
-        valid: errors.length === 0,
-        errors,
-        warnings,
-    };
+    return { valid: errors.length === 0, errors, warnings };
 }
 
 /**

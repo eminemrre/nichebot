@@ -1,59 +1,76 @@
-const { validateConfig } = require('./config');
-const { initDatabase } = require('./db/database');
-const { initBot } = require('./telegram/bot');
+const { config, validateConfig } = require('./config');
+const logger = require('./utils/logger');
+const { init: initI18n } = require('./utils/i18n');
+const { initDatabase, closeDatabase, getSetting } = require('./db/database');
+const { initBot, stopBot, getSchedulerNotifyFn } = require('./telegram/bot');
 const { initTwitterClient } = require('./twitter/client');
-const { startScheduler } = require('./scheduler/cron');
+const { startScheduler, stopAll } = require('./scheduler/cron');
 
 console.log(`
 ╔══════════════════════════════════════╗
-║         🤖 NicheBot v1.0.0          ║
-║  AI Sosyal Medya İçerik Asistanı    ║
+║         🤖 NicheBot v1.1.0          ║
+║  AI Social Media Content Assistant  ║
 ╚══════════════════════════════════════╝
 `);
 
-// 1. Yapılandırmayı doğrula
+// 1. Logger başlat
+logger.init(config.logLevel);
+
+// 2. Yapılandırmayı doğrula
 const validation = validateConfig();
 
 if (validation.warnings.length > 0) {
-    console.log('⚠️  Uyarılar:');
-    validation.warnings.forEach((w) => console.log(`  ${w}`));
-    console.log('');
+    validation.warnings.forEach((w) => logger.warn(w));
 }
 
 if (!validation.valid) {
-    console.error('❌ Yapılandırma hataları:');
-    validation.errors.forEach((e) => console.error(`  ${e}`));
-    console.error('\n📄 .env.example dosyasını .env olarak kopyalayıp doldurun:');
-    console.error('   cp .env.example .env');
+    validation.errors.forEach((e) => logger.error(e));
+    logger.error('Copy .env.example to .env and fill in your API keys: cp .env.example .env');
     process.exit(1);
 }
 
-// 2. Veritabanını başlat
+// 3. Veritabanını başlat
 initDatabase();
 
-// 3. Twitter client'ı başlat (opsiyonel)
+// 4. i18n başlat (kayıtlı dil varsa onu kullan)
+const savedLanguage = getSetting('language', config.defaultLanguage);
+initI18n(savedLanguage);
+
+// 5. Twitter client'ı başlat (opsiyonel)
 initTwitterClient();
 
-// 4. Telegram botunu başlat
-const bot = initBot();
+// 6. Telegram botunu başlat
+initBot();
 
-// 5. Zamanlanmış görevleri başlat
-startScheduler((text) => {
-    // İlk mesaj gönderildiğinde chatId kaydedilecek
-    // Şimdilik console'a yazdır
-    console.log('📢 Scheduler bildirim:', text);
-});
+// 7. Zamanlanmış görevleri başlat
+const notifyFn = getSchedulerNotifyFn();
+startScheduler(notifyFn || ((text) => logger.info(`Scheduler: ${text}`)));
 
-console.log('\n🚀 NicheBot çalışıyor! Telegram\'dan botunuza mesaj gönderin.');
-console.log('   Durdurmak için: Ctrl+C\n');
+logger.info('NicheBot is running! Send a message to your Telegram bot.');
 
 // Graceful shutdown
-process.on('SIGINT', () => {
-    console.log('\n👋 NicheBot kapatılıyor...');
+function shutdown(signal) {
+    logger.info(`Shutting down (${signal})...`);
+
+    try {
+        stopAll();       // Cron job'ları durdur
+        stopBot();       // Telegram polling durdur
+        closeDatabase(); // DB bağlantısını kapat
+    } catch (err) {
+        logger.error('Shutdown error', { error: err.message });
+    }
+
     process.exit(0);
+}
+
+process.on('SIGINT', () => shutdown('SIGINT'));
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+// Uncaught exception handler — bot çökmesini önle
+process.on('uncaughtException', (err) => {
+    logger.error('Uncaught exception', { error: err.message, stack: err.stack });
 });
 
-process.on('SIGTERM', () => {
-    console.log('\n👋 NicheBot kapatılıyor...');
-    process.exit(0);
+process.on('unhandledRejection', (reason) => {
+    logger.error('Unhandled rejection', { reason: String(reason) });
 });

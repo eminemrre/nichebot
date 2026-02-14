@@ -1,0 +1,82 @@
+{
+    "bot": {
+        "welcome": "🤖 *NicheBot'a Hoş Geldiniz!*\n\nAI destekli sosyal medya içerik asistanınız.",
+        "connection_status": "📡 *Bağlantı Durumu:*",
+        "llm_label": "  🧠 LLM:",
+        "twitter_label": "  🐦 Twitter:",
+        "twitter_connected": "✅ @{username}",
+        "twitter_not_connected": "❌ Bağlı değil",
+        "active_jobs": "  📅 Aktif Görev: {count}",
+        "commands_header": "\n📋 *Komutlar:*",
+        "unauthorized": "🚫 Bu botu kullanma yetkiniz yok.",
+        "rate_limited": "⏳ Lütfen {seconds} saniye bekleyin.",
+        "api_not_ready": "❌ {service} API bağlı değil. .env dosyasına anahtarları ekleyin."
+    },
+    "niche": {
+        "added": "✅ Niş eklendi: *{name}*\n\nŞimdi `/uret` ile içerik üretebilirsiniz.",
+        "exists": "⚠️ \"{name}\" zaten mevcut.",
+        "removed": "🗑 Niş silindi: *{name}*",
+        "not_found": "❌ \"{name}\" bulunamadı.",
+        "empty": "📭 Henüz niş eklenmemiş.\n\n`/niche yapay zeka` komutuyla başlayın!",
+        "list_header": "🏷 *Aktif Nişler ({count}):*\n",
+        "invalid_name": "❌ Geçersiz niş adı. En fazla 50 karakter, sadece harf/sayı/boşluk.",
+        "add_first": "❌ Önce bir niş ekleyin: `/niche yapay zeka`"
+    },
+    "generate": {
+        "generating": "🔄 İçerik üretiliyor: *{niche}*...",
+        "preview_header": "📝 *Tweet Önizleme:*\n\n",
+        "niche_label": "📌 Niş: {niche}",
+        "char_count": "📏 {count} karakter",
+        "approve": "✅ /onayla — Paylaş",
+        "reject": "🔄 /reddet — Yenisini üret",
+        "edit_hint": "✏️ Veya düzenlenmiş halini metin olarak gönderin",
+        "error": "❌ İçerik üretme hatası: {error}",
+        "no_pending": "❌ Onaylanacak içerik yok. Önce `/uret` ile içerik üretin.",
+        "updated": "✏️ İçerik güncellendi!",
+        "new_preview": "📝 *Yeni Tweet Önizleme:*\n\n"
+    },
+    "thread": {
+        "generating": "🔄 {count} tweet'lik thread üretiliyor: *{niche}*...",
+        "preview_header": "🧵 *Thread Önizleme ({count} tweet):*\n\n",
+        "error": "❌ Thread üretme hatası: {error}"
+    },
+    "publish": {
+        "publishing": "🚀 Paylaşılıyor...",
+        "success": "✅ *Başarıyla paylaşıldı!*\n\n🔗 https://twitter.com/i/status/{tweetId}",
+        "no_twitter": "⚠️ Twitter API bağlı değil. İçerik kaydedildi ama paylaşılamıyor.\n\n.env dosyasına Twitter anahtarlarını ekleyip botu yeniden başlatın.",
+        "error": "❌ Paylaşma hatası: {error}"
+    },
+    "analyze": {
+        "usage": "❓ Kullanım: `/analiz twitterkullanici`",
+        "analyzing": "🔍 @{username} profili analiz ediliyor...",
+        "header": "📊 *@{username} Profil Analizi*\n\n",
+        "topics": "🏷 *Konular:* {topics}",
+        "tone": "🎭 *Ton:* {tone}",
+        "analysis": "📝 *Analiz:*",
+        "suggestions": "💡 *Öneriler:*",
+        "error": "❌ Analiz hatası: {error}"
+    },
+    "schedule": {
+        "header": "⏰ *Otomatik Paylaşım Ayarları*\n\nKullanım: `/zamanlama <saat>`",
+        "examples": "Örnekler:\n`/zamanlama 09:00` — Her gün 09:00'da\n`/zamanlama 09:00,13:00,18:00` — Günde 3 kez\n`/zamanlama kapat` — Otomatik paylaşımı kapat",
+        "active_count": "📅 Aktif görevler: {count}",
+        "stopped": "⏹ Tüm zamanlanmış görevler durduruldu.",
+        "invalid_time": "❌ Geçersiz saat formatı: \"{time}\". Örnek: 09:00",
+        "added": "✅ {count} zamanlama eklendi!\n\nNiş: *{niche}*\nSaatler: {times}\n\nHer gün belirtilen saatlerde otomatik içerik üretilip paylaşılacak."
+    },
+    "stats": {
+        "header": "📊 *NicheBot İstatistikleri*\n",
+        "content_header": "📝 *İçerik:*",
+        "total": "  Toplam: {count}",
+        "published": "  Paylaşılan: {count}",
+        "drafts": "  Taslak: {count}",
+        "today": "  Bugün: {count}/{max}",
+        "niches_label": "🏷 *Nişler ({count}):* {list}"
+    },
+    "scheduler": {
+        "auto_posted": "✅ *Otomatik Tweet Paylaşıldı!*\n\n📌 Niş: {niche}\n📝 {content}\n\n🔗 https://twitter.com/i/status/{tweetId}",
+        "auto_failed": "❌ Otomatik tweet paylaşılamadı: {error}",
+        "auto_generated": "📝 *Otomatik İçerik Üretildi* (Twitter bağlı değil)\n\n📌 Niş: {niche}\n{content}",
+        "daily_limit": "Günlük limit ({max}) aşıldı, atlanıyor."
+    }
+}

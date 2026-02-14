@@ -1,0 +1,82 @@
+{
+    "bot": {
+        "welcome": "🤖 *Welcome to NicheBot!*\n\nYour AI-powered social media content assistant.",
+        "connection_status": "📡 *Connection Status:*",
+        "llm_label": "  🧠 LLM:",
+        "twitter_label": "  🐦 Twitter:",
+        "twitter_connected": "✅ @{username}",
+        "twitter_not_connected": "❌ Not connected",
+        "active_jobs": "  📅 Active Jobs: {count}",
+        "commands_header": "\n📋 *Commands:*",
+        "unauthorized": "🚫 You are not authorized to use this bot.",
+        "rate_limited": "⏳ Please wait {seconds} seconds.",
+        "api_not_ready": "❌ {service} API is not connected. Add keys to .env file."
+    },
+    "niche": {
+        "added": "✅ Niche added: *{name}*\n\nNow use `/uret` to generate content.",
+        "exists": "⚠️ \"{name}\" already exists.",
+        "removed": "🗑 Niche removed: *{name}*",
+        "not_found": "❌ \"{name}\" not found.",
+        "empty": "📭 No niches added yet.\n\nStart with `/niche artificial intelligence`!",
+        "list_header": "🏷 *Active Niches ({count}):*\n",
+        "invalid_name": "❌ Invalid niche name. Max 50 characters, letters/numbers/spaces only.",
+        "add_first": "❌ Add a niche first: `/niche artificial intelligence`"
+    },
+    "generate": {
+        "generating": "🔄 Generating content: *{niche}*...",
+        "preview_header": "📝 *Tweet Preview:*\n\n",
+        "niche_label": "📌 Niche: {niche}",
+        "char_count": "📏 {count} characters",
+        "approve": "✅ /onayla — Publish",
+        "reject": "🔄 /reddet — Generate new",
+        "edit_hint": "✏️ Or send your edited version as text",
+        "error": "❌ Content generation error: {error}",
+        "no_pending": "❌ No pending content. Use `/uret` to generate first.",
+        "updated": "✏️ Content updated!",
+        "new_preview": "📝 *New Tweet Preview:*\n\n"
+    },
+    "thread": {
+        "generating": "🔄 Generating {count}-tweet thread: *{niche}*...",
+        "preview_header": "🧵 *Thread Preview ({count} tweets):*\n\n",
+        "error": "❌ Thread generation error: {error}"
+    },
+    "publish": {
+        "publishing": "🚀 Publishing...",
+        "success": "✅ *Successfully published!*\n\n🔗 https://twitter.com/i/status/{tweetId}",
+        "no_twitter": "⚠️ Twitter API not connected. Content saved but cannot publish.\n\nAdd Twitter keys to .env and restart the bot.",
+        "error": "❌ Publishing error: {error}"
+    },
+    "analyze": {
+        "usage": "❓ Usage: `/analiz twitterusername`",
+        "analyzing": "🔍 Analyzing @{username} profile...",
+        "header": "📊 *@{username} Profile Analysis*\n\n",
+        "topics": "🏷 *Topics:* {topics}",
+        "tone": "🎭 *Tone:* {tone}",
+        "analysis": "📝 *Analysis:*",
+        "suggestions": "💡 *Suggestions:*",
+        "error": "❌ Analysis error: {error}"
+    },
+    "schedule": {
+        "header": "⏰ *Auto-Post Settings*\n\nUsage: `/zamanlama <time>`",
+        "examples": "Examples:\n`/zamanlama 09:00` — Daily at 09:00\n`/zamanlama 09:00,13:00,18:00` — 3 times a day\n`/zamanlama kapat` — Stop auto-posting",
+        "active_count": "📅 Active jobs: {count}",
+        "stopped": "⏹ All scheduled jobs stopped.",
+        "invalid_time": "❌ Invalid time format: \"{time}\". Example: 09:00",
+        "added": "✅ {count} schedule(s) added!\n\nNiche: *{niche}*\nTimes: {times}\n\nContent will be auto-generated and posted daily at the specified times."
+    },
+    "stats": {
+        "header": "📊 *NicheBot Statistics*\n",
+        "content_header": "📝 *Content:*",
+        "total": "  Total: {count}",
+        "published": "  Published: {count}",
+        "drafts": "  Drafts: {count}",
+        "today": "  Today: {count}/{max}",
+        "niches_label": "🏷 *Niches ({count}):* {list}"
+    },
+    "scheduler": {
+        "auto_posted": "✅ *Auto Tweet Published!*\n\n📌 Niche: {niche}\n📝 {content}\n\n🔗 https://twitter.com/i/status/{tweetId}",
+        "auto_failed": "❌ Auto tweet failed: {error}",
+        "auto_generated": "📝 *Content Auto-Generated* (Twitter not connected)\n\n📌 Niche: {niche}\n{content}",
+        "daily_limit": "Daily limit ({max}) reached, skipping."
+    }
+}

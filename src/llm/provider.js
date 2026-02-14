@@ -1,36 +1,40 @@
 const OpenAI = require('openai');
 const { config } = require('../config');
+const { retry } = require('../utils/helpers');
+const logger = require('../utils/logger');
+
+let client = null;
 
 /**
- * LLM Provider Factory — Kullanıcının seçtiği sağlayıcıyı döndürür
- * OpenAI, Anthropic ve DeepSeek hepsi OpenAI-uyumlu SDK ile çalışır
+ * LLM client'ı oluştur (lazy singleton)
  */
-function createLLMClient() {
+function getClient() {
+    if (client) return client;
+
     const provider = config.llm.provider;
 
     switch (provider) {
         case 'openai':
-            return new OpenAI({ apiKey: config.llm.openai.apiKey });
-
-        case 'anthropic':
-            // Anthropic'in kendi messages API'sini kullanıyoruz
-            return new OpenAI({
-                apiKey: config.llm.anthropic.apiKey,
-                baseURL: 'https://api.anthropic.com/v1/',
-                defaultHeaders: {
-                    'anthropic-version': '2023-06-01',
-                },
-            });
+            client = new OpenAI({ apiKey: config.llm.openai.apiKey });
+            break;
 
         case 'deepseek':
-            return new OpenAI({
+            client = new OpenAI({
                 apiKey: config.llm.deepseek.apiKey,
                 baseURL: 'https://api.deepseek.com',
             });
+            break;
+
+        case 'anthropic':
+            // Anthropic kendi API'sini kullanır, client null kalır
+            client = null;
+            break;
 
         default:
             throw new Error(`Bilinmeyen LLM sağlayıcı: ${provider}`);
     }
+
+    return client;
 }
 
 /**
@@ -42,55 +46,77 @@ function getModel() {
 }
 
 /**
- * LLM'e mesaj gönder ve yanıt al
+ * LLM'e mesaj gönder ve yanıt al (retry ile)
  * @param {string} systemPrompt - Sistem prompt
  * @param {string} userMessage - Kullanıcı mesajı
  * @returns {Promise<string>} LLM yanıtı
  */
 async function chat(systemPrompt, userMessage) {
-    const client = createLLMClient();
-    const model = getModel();
     const provider = config.llm.provider;
+    const model = getModel();
 
-    try {
-        // Anthropic özel endpoint kullanıyor
-        if (provider === 'anthropic') {
-            const response = await fetch('https://api.anthropic.com/v1/messages', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': config.llm.anthropic.apiKey,
-                    'anthropic-version': '2023-06-01',
-                },
-                body: JSON.stringify({
-                    model: model,
-                    max_tokens: 1024,
-                    system: systemPrompt,
-                    messages: [{ role: 'user', content: userMessage }],
-                }),
-            });
-
-            const data = await response.json();
-            if (data.error) throw new Error(data.error.message);
-            return data.content[0].text;
+    return retry(
+        async () => {
+            if (provider === 'anthropic') {
+                return await callAnthropic(systemPrompt, userMessage, model);
+            }
+            return await callOpenAICompatible(systemPrompt, userMessage, model);
+        },
+        {
+            maxRetries: 3,
+            baseDelay: 1000,
+            onRetry: (err, attempt, delay) => {
+                logger.warn(`LLM retry ${attempt}/3 (${delay}ms): ${err.message}`);
+            },
         }
-
-        // OpenAI ve DeepSeek — aynı SDK
-        const completion = await client.chat.completions.create({
-            model: model,
-            messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: userMessage },
-            ],
-            max_tokens: 1024,
-            temperature: 0.8,
-        });
-
-        return completion.choices[0].message.content;
-    } catch (error) {
-        console.error(`LLM hatası (${provider}):`, error.message);
-        throw new Error(`LLM yanıt veremedi: ${error.message}`);
-    }
+    );
 }
 
-module.exports = { chat, getModel, createLLMClient };
+/**
+ * Anthropic Messages API (fetch tabanlı)
+ */
+async function callAnthropic(systemPrompt, userMessage, model) {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': config.llm.anthropic.apiKey,
+            'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+            model,
+            max_tokens: 1024,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: userMessage }],
+        }),
+    });
+
+    const data = await response.json();
+
+    if (data.error) {
+        throw new Error(data.error.message || 'Anthropic API error');
+    }
+
+    return data.content[0].text;
+}
+
+/**
+ * OpenAI-uyumlu API (OpenAI, DeepSeek)
+ */
+async function callOpenAICompatible(systemPrompt, userMessage, model) {
+    const openaiClient = getClient();
+
+    const completion = await openaiClient.chat.completions.create({
+        model,
+        messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userMessage },
+        ],
+        max_tokens: 1024,
+        temperature: 0.8,
+    });
+
+    return completion.choices[0].message.content;
+}
+
+module.exports = { chat, getModel };

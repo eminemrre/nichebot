@@ -3,6 +3,8 @@ const { generateTweet } = require('../llm/generator');
 const { postTweet } = require('../twitter/client');
 const db = require('../db/database');
 const { config, isTwitterConfigured } = require('../config');
+const { t } = require('../utils/i18n');
+const logger = require('../utils/logger');
 
 const activeJobs = new Map();
 
@@ -17,7 +19,7 @@ function startScheduler(notifyFn) {
         scheduleJob(schedule, notifyFn);
     });
 
-    console.log(`✅ ${schedules.length} zamanlanmış görev başlatıldı`);
+    logger.info(`${schedules.length} zamanlanmış görev başlatıldı`);
 }
 
 /**
@@ -29,7 +31,7 @@ function scheduleJob(schedule, notifyFn) {
     }
 
     if (!cron.validate(schedule.cron_expression)) {
-        console.error(`❌ Geçersiz cron ifadesi: ${schedule.cron_expression}`);
+        logger.error(`Geçersiz cron ifadesi: ${schedule.cron_expression}`);
         return;
     }
 
@@ -38,11 +40,11 @@ function scheduleJob(schedule, notifyFn) {
             // Günlük limit kontrolü
             const todayCount = db.getTodayPostCount();
             if (todayCount >= config.maxDailyPosts) {
-                console.log(`⚠️ Günlük limit (${config.maxDailyPosts}) aşıldı, atlanıyor.`);
+                logger.info(t('scheduler.daily_limit', { max: config.maxDailyPosts }));
                 return;
             }
 
-            console.log(`🔄 Otomatik içerik üretiliyor: ${schedule.niche_name}`);
+            logger.info(`Otomatik içerik üretiliyor: ${schedule.niche_name}`);
 
             // İçerik üret
             const result = await generateTweet(schedule.niche_name);
@@ -66,42 +68,38 @@ function scheduleJob(schedule, notifyFn) {
                         db.markPostAsPublished(draft.id, tweetResult.tweetId);
                     }
 
-                    // Telegram'a bildir
                     if (notifyFn) {
-                        await notifyFn(
-                            `✅ *Otomatik Tweet Paylaşıldı!*\n\n` +
-                            `📌 Niş: ${schedule.niche_name}\n` +
-                            `📝 ${fullContent}\n\n` +
-                            `🔗 https://twitter.com/i/status/${tweetResult.tweetId}`
-                        );
+                        await notifyFn(t('scheduler.auto_posted', {
+                            niche: schedule.niche_name,
+                            content: fullContent,
+                            tweetId: tweetResult.tweetId,
+                        }));
                     }
                 } else {
                     if (notifyFn) {
-                        await notifyFn(`❌ Otomatik tweet paylaşılamadı: ${tweetResult.error}`);
+                        await notifyFn(t('scheduler.auto_failed', { error: tweetResult.error }));
                     }
                 }
             } else {
-                // Twitter yoksa sadece üret ve bildir
                 if (notifyFn) {
-                    await notifyFn(
-                        `📝 *Otomatik İçerik Üretildi* (Twitter bağlı değil)\n\n` +
-                        `📌 Niş: ${schedule.niche_name}\n` +
-                        `${fullContent}`
-                    );
+                    await notifyFn(t('scheduler.auto_generated', {
+                        niche: schedule.niche_name,
+                        content: fullContent,
+                    }));
                 }
             }
 
             db.updateScheduleLastRun(schedule.id);
         } catch (error) {
-            console.error('Zamanlanmış görev hatası:', error.message);
+            logger.error('Zamanlanmış görev hatası', { error: error.message });
             if (notifyFn) {
-                await notifyFn(`❌ Zamanlanmış görev hatası: ${error.message}`);
+                await notifyFn(t('scheduler.auto_failed', { error: error.message }));
             }
         }
     });
 
     activeJobs.set(schedule.id, job);
-    console.log(`  📅 Görev #${schedule.id}: ${schedule.niche_name} → ${schedule.cron_expression}`);
+    logger.info(`Görev #${schedule.id}: ${schedule.niche_name} → ${schedule.cron_expression}`);
 }
 
 /**
@@ -125,6 +123,7 @@ function addAndStartSchedule(nicheId, cronExpression, notifyFn) {
 function stopAll() {
     activeJobs.forEach((job) => job.stop());
     activeJobs.clear();
+    logger.info('Tüm zamanlanmış görevler durduruldu');
 }
 
 /**

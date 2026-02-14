@@ -1,5 +1,6 @@
 const { chat } = require('./provider');
 const db = require('../db/database');
+const logger = require('../utils/logger');
 
 /**
  * Niş konuya göre tweet içeriği üret
@@ -10,15 +11,16 @@ const db = require('../db/database');
 async function generateTweet(nicheName, options = {}) {
     const { tone = 'bilgilendirici', language = 'tr', profileContext = '' } = options;
 
-    // Son 10 postu al — tekrar etmesin
-    const recentPosts = getRecentPosts(nicheName, 10);
+    // Son 10 postu al — tekrar etmesin (BUG FIX)
+    const niche = db.getNicheByName(nicheName);
+    const recentPosts = niche ? db.getRecentPostsByNiche(niche.id, 10) : [];
     const recentTexts = recentPosts.map((p) => `- ${p.content}`).join('\n');
 
     const systemPrompt = `Sen profesyonel bir sosyal medya içerik üreticisisin.
 Görevin: "${nicheName}" konusunda Twitter/X için etkileyici, özgün içerikler üretmek.
 
 KURALLAR:
-- Dil: ${language === 'tr' ? 'Türkçe' : 'İngilizce'}
+- Dil: ${language === 'tr' ? 'Türkçe' : 'English'}
 - Ton: ${tone}
 - Maksimum 270 karakter (hashtag'ler hariç)
 - Doğal, samimi, insan gibi yaz — robot gibi olma
@@ -37,6 +39,8 @@ HASHTAGS: [#hashtag1 #hashtag2 #hashtag3]`;
 
     const userMessage = `"${nicheName}" konusunda yeni bir tweet üret. ${tone} tonda olsun.`;
 
+    logger.debug('Tweet üretiliyor', { niche: nicheName, tone, language });
+
     const response = await chat(systemPrompt, userMessage);
     return parseTweetResponse(response);
 }
@@ -54,7 +58,7 @@ async function generateThread(nicheName, tweetCount = 4, options = {}) {
 Görevin: "${nicheName}" konusunda ${tweetCount} tweet'lik bir Twitter thread (konu dizisi) oluşturmak.
 
 KURALLAR:
-- Dil: ${language === 'tr' ? 'Türkçe' : 'İngilizce'}
+- Dil: ${language === 'tr' ? 'Türkçe' : 'English'}
 - Ton: ${tone}
 - Her tweet maksimum 270 karakter
 - İlk tweet dikkat çekici bir giriş olsun
@@ -70,6 +74,8 @@ THREAD:
 HASHTAGS: [#hashtag1 #hashtag2]`;
 
     const userMessage = `"${nicheName}" konusunda ${tweetCount} tweet'lik detaylı bir thread oluştur.`;
+
+    logger.debug('Thread üretiliyor', { niche: nicheName, count: tweetCount });
 
     const response = await chat(systemPrompt, userMessage);
     return parseThreadResponse(response);
@@ -104,25 +110,6 @@ function parseThreadResponse(response) {
     const hashtags = hashtagMatch ? hashtagMatch[1].trim() : '';
 
     return { tweets, hashtags };
-}
-
-/**
- * Son paylaşımları getir (tekrar önleme için)
- */
-function getRecentPosts(nicheName, limit = 10) {
-    try {
-        const niche = db.getNicheByName(nicheName);
-        if (!niche) return [];
-
-        const stmt = require('better-sqlite3')(
-            require('path').join(__dirname, '..', '..', 'data', 'nichebot.db'),
-            { readonly: true }
-        );
-        // Direct query yapıyoruz çünkü db modülünde bu fonksiyon yok
-        return [];
-    } catch {
-        return [];
-    }
 }
 
 module.exports = { generateTweet, generateThread };

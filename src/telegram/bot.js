@@ -1,147 +1,192 @@
 const TelegramBot = require('node-telegram-bot-api');
-const { config, validateConfig, isTwitterConfigured, getActiveProvider } = require('../config');
+const { config, isTwitterConfigured, getActiveProvider } = require('../config');
 const { generateTweet, generateThread } = require('../llm/generator');
 const { postTweet, postThread, getMe } = require('../twitter/client');
 const { analyzeProfile, formatAnalysisForTelegram } = require('../twitter/analyzer');
-const { addAndStartSchedule, getActiveJobCount } = require('../scheduler/cron');
+const { addAndStartSchedule, getActiveJobCount, stopAll } = require('../scheduler/cron');
 const db = require('../db/database');
+const { t } = require('../utils/i18n');
+const { RateLimiter, sanitizeInput } = require('../utils/helpers');
+const logger = require('../utils/logger');
 
 let bot;
-let pendingPost = null; // Onay bekleyen post
+let pendingPost = null;
+const rateLimiter = new RateLimiter(3000); // 3 saniye cooldown
 
 /**
  * Telegram botunu başlat
  */
 function initBot() {
     bot = new TelegramBot(config.telegram.token, { polling: true });
-
-    // Yetkisiz kullanıcıları engelle
-    bot.on('message', (msg) => {
-        if (config.telegram.allowedUserId && msg.from.id !== config.telegram.allowedUserId) {
-            bot.sendMessage(msg.chat.id, '🚫 Bu botu kullanma yetkiniz yok.');
-            return;
-        }
-    });
-
     registerCommands();
-    console.log('✅ Telegram botu başlatıldı');
+    logger.info('Telegram botu başlatıldı');
     return bot;
+}
+
+/**
+ * Bot'u durdur
+ */
+function stopBot() {
+    if (bot) {
+        bot.stopPolling();
+        logger.info('Telegram polling durduruldu');
+    }
+}
+
+/**
+ * Yetki + rate limit kontrolü
+ * @returns {boolean} Devam edilebilir mi
+ */
+function checkAccess(msg, command = 'general') {
+    const chatId = msg.chat.id;
+
+    // Yetki kontrolü
+    if (config.telegram.allowedUserId && msg.from.id !== config.telegram.allowedUserId) {
+        bot.sendMessage(chatId, t('bot.unauthorized'));
+        return false;
+    }
+
+    // Rate limit
+    const key = `${msg.from.id}:${command}`;
+    if (!rateLimiter.canProceed(key)) {
+        const remaining = Math.ceil(rateLimiter.getRemainingMs(key) / 1000);
+        bot.sendMessage(chatId, t('bot.rate_limited', { seconds: remaining }));
+        return false;
+    }
+
+    // chatId'yi kaydet (scheduler bildirimleri için)
+    db.setSetting('telegram_chat_id', String(chatId));
+
+    return true;
 }
 
 /**
  * Tüm komutları kaydet
  */
 function registerCommands() {
-    // /start — Hoş geldin + durum
+    // /start
     bot.onText(/\/start/, async (msg) => {
-        if (!isAuthorized(msg)) return;
+        if (!checkAccess(msg, 'start')) return;
         const chatId = msg.chat.id;
         const provider = getActiveProvider();
         const twitterUser = await getMe();
 
-        let text = `🤖 *NicheBot'a Hoş Geldiniz!*\n\n`;
-        text += `AI destekli sosyal medya içerik asistanınız.\n\n`;
-        text += `📡 *Bağlantı Durumu:*\n`;
-        text += `  🧠 LLM: ✅ ${provider.name} (${provider.model})\n`;
+        let text = t('bot.welcome') + '\n\n';
+        text += t('bot.connection_status') + '\n';
+        text += `${t('bot.llm_label')} ✅ ${provider.name} (${provider.model})\n`;
         text += twitterUser
-            ? `  🐦 Twitter: ✅ @${twitterUser.username}\n`
-            : `  🐦 Twitter: ❌ Bağlı değil\n`;
-        text += `  📅 Aktif Görev: ${getActiveJobCount()}\n\n`;
-
-        text += `📋 *Komutlar:*\n`;
-        text += `/niche <konu> — Niş konu ekle\n`;
-        text += `/nisler — Aktif nişleri listele\n`;
-        text += `/sil <konu> — Niş kaldır\n`;
-        text += `/uret — Tweet üret + önizle\n`;
-        text += `/thread <sayı> — Thread üret\n`;
-        text += `/onayla — Tweeti paylaş\n`;
-        text += `/reddet — Yenisini üret\n`;
-        text += `/analiz <kullanıcı> — Profil analizi\n`;
-        text += `/zamanlama — Otomatik paylaşım ayarla\n`;
-        text += `/durum — İstatistikler\n`;
-        text += `/yardim — Detaylı yardım`;
+            ? `${t('bot.twitter_label')} ${t('bot.twitter_connected', { username: twitterUser.username })}\n`
+            : `${t('bot.twitter_label')} ${t('bot.twitter_not_connected')}\n`;
+        text += t('bot.active_jobs', { count: getActiveJobCount() }) + '\n';
+        text += t('bot.commands_header') + '\n';
+        text += `/niche <topic> — Add niche\n`;
+        text += `/nisler — List niches\n`;
+        text += `/sil <topic> — Remove niche\n`;
+        text += `/uret — Generate tweet\n`;
+        text += `/thread <count> — Generate thread\n`;
+        text += `/onayla — Publish\n`;
+        text += `/reddet — Regenerate\n`;
+        text += `/analiz <user> — Profile analysis\n`;
+        text += `/zamanlama — Auto-post settings\n`;
+        text += `/durum — Statistics\n`;
+        text += `/dil <tr|en> — Change language`;
 
         bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
     });
 
-    // /niche <konu> — Niş ekle
-    bot.onText(/\/niche (.+)/, (msg, match) => {
-        if (!isAuthorized(msg)) return;
+    // /dil — Dil değiştir
+    bot.onText(/\/dil(?:\s+(tr|en))?/, (msg, match) => {
+        if (!checkAccess(msg, 'dil')) return;
         const chatId = msg.chat.id;
-        const nicheName = match[1].trim();
+        const lang = match?.[1];
+
+        if (!lang) {
+            bot.sendMessage(chatId, '🌍 `/dil tr` — Türkçe\n🌍 `/dil en` — English', { parse_mode: 'Markdown' });
+            return;
+        }
+
+        const { setLanguage } = require('../utils/i18n');
+        setLanguage(lang);
+        db.setSetting('language', lang);
+
+        bot.sendMessage(chatId, lang === 'tr' ? '✅ Dil Türkçe olarak ayarlandı.' : '✅ Language set to English.');
+    });
+
+    // /niche <konu>
+    bot.onText(/\/niche (.+)/, (msg, match) => {
+        if (!checkAccess(msg, 'niche')) return;
+        const chatId = msg.chat.id;
+        const raw = match[1].trim();
+        const nicheName = sanitizeInput(raw, 50);
+
+        if (!nicheName || !/^[\w\sçğıöşüÇĞİÖŞÜa-zA-Z0-9]+$/.test(nicheName)) {
+            bot.sendMessage(chatId, t('niche.invalid_name'));
+            return;
+        }
 
         const niche = db.addNiche(nicheName);
         if (niche) {
-            bot.sendMessage(chatId, `✅ Niş eklendi: *${niche.name}*\n\nŞimdi \`/uret\` ile içerik üretebilirsiniz.`, {
-                parse_mode: 'Markdown',
-            });
+            bot.sendMessage(chatId, t('niche.added', { name: niche.name }), { parse_mode: 'Markdown' });
         } else {
-            bot.sendMessage(chatId, `⚠️ "${nicheName}" zaten mevcut.`);
+            bot.sendMessage(chatId, t('niche.exists', { name: nicheName }));
         }
     });
 
-    // /nisler — Nişleri listele
+    // /nisler
     bot.onText(/\/nisler/, (msg) => {
-        if (!isAuthorized(msg)) return;
+        if (!checkAccess(msg, 'nisler')) return;
         const chatId = msg.chat.id;
         const niches = db.getAllNiches();
 
         if (niches.length === 0) {
-            bot.sendMessage(chatId, '📭 Henüz niş eklenmemiş.\n\n`/niche yapay zeka` komutuyla başlayın!', {
-                parse_mode: 'Markdown',
-            });
+            bot.sendMessage(chatId, t('niche.empty'), { parse_mode: 'Markdown' });
             return;
         }
 
-        let text = `🏷 *Aktif Nişler (${niches.length}):*\n\n`;
+        let text = t('niche.list_header', { count: niches.length }) + '\n';
         niches.forEach((n, i) => {
             text += `${i + 1}. *${n.name}* — ${n.tone}\n`;
         });
-        text += `\nNiş silmek için: \`/sil <konu>\``;
 
         bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
     });
 
-    // /sil <konu> — Niş sil
+    // /sil <konu>
     bot.onText(/\/sil (.+)/, (msg, match) => {
-        if (!isAuthorized(msg)) return;
+        if (!checkAccess(msg, 'sil')) return;
         const chatId = msg.chat.id;
-        const nicheName = match[1].trim();
+        const nicheName = sanitizeInput(match[1], 50);
 
         if (db.removeNiche(nicheName)) {
-            bot.sendMessage(chatId, `🗑 Niş silindi: *${nicheName}*`, { parse_mode: 'Markdown' });
+            bot.sendMessage(chatId, t('niche.removed', { name: nicheName }), { parse_mode: 'Markdown' });
         } else {
-            bot.sendMessage(chatId, `❌ "${nicheName}" bulunamadı.`);
+            bot.sendMessage(chatId, t('niche.not_found', { name: nicheName }));
         }
     });
 
-    // /uret — Tweet üret
+    // /uret
     bot.onText(/\/uret(?:\s+(.+))?/, async (msg, match) => {
-        if (!isAuthorized(msg)) return;
+        if (!checkAccess(msg, 'uret')) return;
         const chatId = msg.chat.id;
 
         const niches = db.getAllNiches();
         if (niches.length === 0) {
-            bot.sendMessage(chatId, '❌ Önce bir niş ekleyin: `/niche yapay zeka`', { parse_mode: 'Markdown' });
+            bot.sendMessage(chatId, t('niche.add_first'), { parse_mode: 'Markdown' });
             return;
         }
 
-        // Niş seçimi: parametre veya ilk niş
         const nicheName = match?.[1]?.trim() || niches[0].name;
         const niche = db.getNicheByName(nicheName);
 
         if (!niche) {
-            bot.sendMessage(chatId, `❌ "${nicheName}" nişi bulunamadı.\nMevcut nişler: ${niches.map((n) => n.name).join(', ')}`);
+            bot.sendMessage(chatId, t('niche.not_found', { name: nicheName }));
             return;
         }
 
-        bot.sendMessage(chatId, `🔄 İçerik üretiliyor: *${niche.name}*...`, { parse_mode: 'Markdown' });
+        bot.sendMessage(chatId, t('generate.generating', { niche: niche.name }), { parse_mode: 'Markdown' });
 
         try {
-            // Profil analizi varsa bağlam olarak kullan
-            const profileAnalysis = db.getLatestProfileAnalysis(
-                db.getSetting('twitter_username', '')
-            );
+            const profileAnalysis = db.getLatestProfileAnalysis(db.getSetting('twitter_username', ''));
             const profileContext = profileAnalysis ? profileAnalysis.analysis : '';
 
             const result = await generateTweet(niche.name, {
@@ -150,49 +195,37 @@ function registerCommands() {
                 profileContext,
             });
 
-            const fullContent = result.hashtags
-                ? `${result.content}\n\n${result.hashtags}`
-                : result.content;
-
-            // Taslak olarak kaydet
+            const fullContent = result.hashtags ? `${result.content}\n\n${result.hashtags}` : result.content;
             const saved = db.savePost(niche.id, fullContent, 'tweet', 'draft');
 
-            // Onay beklet
-            pendingPost = {
-                id: saved.lastInsertRowid,
-                content: fullContent,
-                nicheName: niche.name,
-            };
+            pendingPost = { id: saved.lastInsertRowid, content: fullContent, nicheName: niche.name };
 
-            let preview = `📝 *Tweet Önizleme:*\n\n${fullContent}\n\n`;
-            preview += `📌 Niş: ${niche.name}\n`;
-            preview += `📏 ${fullContent.length} karakter\n\n`;
-            preview += `✅ /onayla — Paylaş\n`;
-            preview += `🔄 /reddet — Yenisini üret\n`;
-            preview += `✏️ Veya düzenlenmiş halini metin olarak gönderin`;
+            let preview = t('generate.preview_header') + fullContent + '\n\n';
+            preview += `${t('generate.niche_label', { niche: niche.name })}\n`;
+            preview += `${t('generate.char_count', { count: fullContent.length })}\n\n`;
+            preview += `${t('generate.approve')}\n${t('generate.reject')}\n${t('generate.edit_hint')}`;
 
             bot.sendMessage(chatId, preview, { parse_mode: 'Markdown' });
         } catch (error) {
-            bot.sendMessage(chatId, `❌ İçerik üretme hatası: ${error.message}`);
+            logger.error('Tweet üretme hatası', { error: error.message });
+            bot.sendMessage(chatId, t('generate.error', { error: error.message }));
         }
     });
 
-    // /thread — Thread üret
+    // /thread
     bot.onText(/\/thread(?:\s+(\d+))?/, async (msg, match) => {
-        if (!isAuthorized(msg)) return;
+        if (!checkAccess(msg, 'thread')) return;
         const chatId = msg.chat.id;
-        const count = parseInt(match?.[1]) || 4;
+        const count = Math.min(parseInt(match?.[1]) || 4, 10); // Max 10
 
         const niches = db.getAllNiches();
         if (niches.length === 0) {
-            bot.sendMessage(chatId, '❌ Önce bir niş ekleyin: `/niche yapay zeka`', { parse_mode: 'Markdown' });
+            bot.sendMessage(chatId, t('niche.add_first'), { parse_mode: 'Markdown' });
             return;
         }
 
         const niche = niches[0];
-        bot.sendMessage(chatId, `🔄 ${count} tweet'lik thread üretiliyor: *${niche.name}*...`, {
-            parse_mode: 'Markdown',
-        });
+        bot.sendMessage(chatId, t('thread.generating', { count, niche: niche.name }), { parse_mode: 'Markdown' });
 
         try {
             const result = await generateThread(niche.name, count, {
@@ -200,16 +233,13 @@ function registerCommands() {
                 language: config.defaultLanguage,
             });
 
-            let preview = `🧵 *Thread Önizleme (${result.tweets.length} tweet):*\n\n`;
-            result.tweets.forEach((t, i) => {
-                preview += `*${i + 1}/${result.tweets.length}* ${t}\n\n`;
+            let preview = t('thread.preview_header', { count: result.tweets.length }) + '\n';
+            result.tweets.forEach((tw, i) => {
+                preview += `*${i + 1}/${result.tweets.length}* ${tw}\n\n`;
             });
-            if (result.hashtags) {
-                preview += `${result.hashtags}\n\n`;
-            }
-            preview += `✅ /onayla — Paylaş\n🔄 /reddet — Yenisini üret`;
+            if (result.hashtags) preview += `${result.hashtags}\n\n`;
+            preview += `${t('generate.approve')}\n${t('generate.reject')}`;
 
-            // Thread'i pending olarak kaydet
             const fullContent = result.tweets.join('\n---\n');
             const saved = db.savePost(niche.id, fullContent, 'thread', 'draft');
 
@@ -224,202 +254,175 @@ function registerCommands() {
 
             bot.sendMessage(chatId, preview, { parse_mode: 'Markdown' });
         } catch (error) {
-            bot.sendMessage(chatId, `❌ Thread üretme hatası: ${error.message}`);
+            logger.error('Thread üretme hatası', { error: error.message });
+            bot.sendMessage(chatId, t('thread.error', { error: error.message }));
         }
     });
 
-    // /onayla — Paylaş
+    // /onayla
     bot.onText(/\/onayla/, async (msg) => {
-        if (!isAuthorized(msg)) return;
+        if (!checkAccess(msg, 'onayla')) return;
         const chatId = msg.chat.id;
 
         if (!pendingPost) {
-            bot.sendMessage(chatId, '❌ Onaylanacak içerik yok. Önce `/uret` ile içerik üretin.', {
-                parse_mode: 'Markdown',
-            });
+            bot.sendMessage(chatId, t('generate.no_pending'), { parse_mode: 'Markdown' });
             return;
         }
 
         if (!isTwitterConfigured()) {
-            bot.sendMessage(
-                chatId,
-                '⚠️ Twitter API bağlı değil. İçerik kaydedildi ama paylaşılamıyor.\n\n' +
-                '.env dosyasına Twitter anahtarlarını ekleyip botu yeniden başlatın.'
-            );
+            bot.sendMessage(chatId, t('publish.no_twitter'));
             pendingPost = null;
             return;
         }
 
-        bot.sendMessage(chatId, '🚀 Paylaşılıyor...');
+        bot.sendMessage(chatId, t('publish.publishing'));
 
         try {
             let result;
 
             if (pendingPost.type === 'thread' && pendingPost.tweets) {
-                // Thread paylaş
                 const tweetsWithHashtags = [...pendingPost.tweets];
                 if (pendingPost.hashtags) {
                     tweetsWithHashtags[tweetsWithHashtags.length - 1] += `\n\n${pendingPost.hashtags}`;
                 }
                 result = await postThread(tweetsWithHashtags);
             } else {
-                // Tek tweet paylaş
                 result = await postTweet(pendingPost.content);
             }
 
             if (result.success) {
-                db.markPostAsPublished(pendingPost.id, result.tweetId || result.tweetIds?.[0]);
-
                 const tweetId = result.tweetId || result.tweetIds?.[0];
-                bot.sendMessage(
-                    chatId,
-                    `✅ *Başarıyla paylaşıldı!*\n\n🔗 https://twitter.com/i/status/${tweetId}`,
-                    { parse_mode: 'Markdown' }
-                );
+                db.markPostAsPublished(pendingPost.id, tweetId);
+                bot.sendMessage(chatId, t('publish.success', { tweetId }), { parse_mode: 'Markdown' });
             } else {
-                bot.sendMessage(chatId, `❌ Paylaşma hatası: ${result.error}`);
+                bot.sendMessage(chatId, t('publish.error', { error: result.error }));
             }
         } catch (error) {
-            bot.sendMessage(chatId, `❌ Hata: ${error.message}`);
+            bot.sendMessage(chatId, t('publish.error', { error: error.message }));
         }
 
         pendingPost = null;
     });
 
-    // /reddet — Yenisini üret
+    // /reddet
     bot.onText(/\/reddet/, async (msg) => {
-        if (!isAuthorized(msg)) return;
+        if (!checkAccess(msg, 'reddet')) return;
         const chatId = msg.chat.id;
 
         if (!pendingPost) {
-            bot.sendMessage(chatId, '❌ Reddedilecek içerik yok.');
+            bot.sendMessage(chatId, t('generate.no_pending'), { parse_mode: 'Markdown' });
             return;
         }
 
         const nicheName = pendingPost.nicheName;
         pendingPost = null;
 
-        // Otomatik yenisini üret
-        bot.sendMessage(chatId, `🔄 Yeni içerik üretiliyor: *${nicheName}*...`, { parse_mode: 'Markdown' });
+        bot.sendMessage(chatId, t('generate.generating', { niche: nicheName }), { parse_mode: 'Markdown' });
 
         try {
-            const result = await generateTweet(nicheName);
-            const fullContent = result.hashtags
-                ? `${result.content}\n\n${result.hashtags}`
-                : result.content;
+            const result = await generateTweet(nicheName, { language: config.defaultLanguage });
+            const fullContent = result.hashtags ? `${result.content}\n\n${result.hashtags}` : result.content;
 
             const niche = db.getNicheByName(nicheName);
             const saved = db.savePost(niche.id, fullContent, 'tweet', 'draft');
 
-            pendingPost = {
-                id: saved.lastInsertRowid,
-                content: fullContent,
-                nicheName,
-            };
+            pendingPost = { id: saved.lastInsertRowid, content: fullContent, nicheName };
 
-            let preview = `📝 *Yeni Tweet Önizleme:*\n\n${fullContent}\n\n`;
-            preview += `✅ /onayla — Paylaş | 🔄 /reddet — Başka bir tane`;
+            let preview = t('generate.new_preview') + fullContent + '\n\n';
+            preview += `${t('generate.approve')} | ${t('generate.reject')}`;
 
             bot.sendMessage(chatId, preview, { parse_mode: 'Markdown' });
         } catch (error) {
-            bot.sendMessage(chatId, `❌ Hata: ${error.message}`);
+            bot.sendMessage(chatId, t('generate.error', { error: error.message }));
         }
     });
 
-    // /analiz <kullanıcıadı> — Profil analizi
+    // /analiz
     bot.onText(/\/analiz(?:\s+@?(.+))?/, async (msg, match) => {
-        if (!isAuthorized(msg)) return;
+        if (!checkAccess(msg, 'analiz')) return;
         const chatId = msg.chat.id;
-        const username = match?.[1]?.trim().replace('@', '');
+        const username = sanitizeInput(match?.[1]?.replace('@', ''), 30);
 
         if (!username) {
-            bot.sendMessage(chatId, '❓ Kullanım: `/analiz twitterkullanici`', { parse_mode: 'Markdown' });
+            bot.sendMessage(chatId, t('analyze.usage'), { parse_mode: 'Markdown' });
             return;
         }
 
         if (!isTwitterConfigured()) {
-            bot.sendMessage(chatId, '❌ Profil analizi için Twitter API gerekli. .env dosyasına anahtarları ekleyin.');
+            bot.sendMessage(chatId, t('bot.api_not_ready', { service: 'Twitter' }));
             return;
         }
 
-        bot.sendMessage(chatId, `🔍 @${username} profili analiz ediliyor...`);
+        bot.sendMessage(chatId, t('analyze.analyzing', { username }));
 
         try {
             const analysis = await analyzeProfile(username);
             const text = formatAnalysisForTelegram(analysis);
-
-            // Kullanıcı adını kaydet (içerik üretiminde kullanmak için)
             db.setSetting('twitter_username', username);
-
             bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
         } catch (error) {
-            bot.sendMessage(chatId, `❌ Analiz hatası: ${error.message}`);
+            logger.error('Analiz hatası', { username, error: error.message });
+            bot.sendMessage(chatId, t('analyze.error', { error: error.message }));
         }
     });
 
-    // /zamanlama — Otomatik paylaşım
+    // /zamanlama
     bot.onText(/\/zamanlama(?:\s+(.+))?/, (msg, match) => {
-        if (!isAuthorized(msg)) return;
+        if (!checkAccess(msg, 'zamanlama')) return;
         const chatId = msg.chat.id;
         const param = match?.[1]?.trim();
 
         if (!param) {
-            let text = `⏰ *Otomatik Paylaşım Ayarları*\n\n`;
-            text += `Kullanım: \`/zamanlama <saat>\`\n\n`;
-            text += `Örnekler:\n`;
-            text += `\`/zamanlama 09:00\` — Her gün 09:00'da\n`;
-            text += `\`/zamanlama 09:00,13:00,18:00\` — Günde 3 kez\n`;
-            text += `\`/zamanlama kapat\` — Otomatik paylaşımı kapat\n\n`;
-            text += `📅 Aktif görevler: ${getActiveJobCount()}`;
-
+            let text = t('schedule.header') + '\n\n';
+            text += t('schedule.examples') + '\n\n';
+            text += t('schedule.active_count', { count: getActiveJobCount() });
             bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
             return;
         }
 
-        if (param === 'kapat') {
-            const { stopAll } = require('../scheduler/cron');
+        if (param === 'kapat' || param === 'stop') {
             stopAll();
-            bot.sendMessage(chatId, '⏹ Tüm zamanlanmış görevler durduruldu.');
+            bot.sendMessage(chatId, t('schedule.stopped'));
             return;
         }
 
         const niches = db.getAllNiches();
         if (niches.length === 0) {
-            bot.sendMessage(chatId, '❌ Önce bir niş ekleyin.');
+            bot.sendMessage(chatId, t('niche.add_first'), { parse_mode: 'Markdown' });
             return;
         }
 
-        // Saatleri cron ifadesine çevir
         const times = param.split(',').map((t) => t.trim());
-        let addedCount = 0;
 
         for (const time of times) {
             const timeMatch = time.match(/^(\d{1,2}):(\d{2})$/);
             if (!timeMatch) {
-                bot.sendMessage(chatId, `❌ Geçersiz saat formatı: "${time}". Örnek: 09:00`);
+                bot.sendMessage(chatId, t('schedule.invalid_time', { time }));
                 return;
             }
+        }
 
-            const [, hour, minute] = timeMatch;
-            const cronExpr = `${minute} ${hour} * * *`; // Her gün belirtilen saatte
+        let addedCount = 0;
+        // Bildirim fonksiyonu — scheduler'dan Telegram'a bildirim
+        const notifyFn = (text) => bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
 
-            // İlk niş için zamanlama ekle
-            addAndStartSchedule(niches[0].id, cronExpr, (text) => {
-                bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
-            });
+        for (const time of times) {
+            const [, hour, minute] = time.match(/^(\d{1,2}):(\d{2})$/);
+            const cronExpr = `${minute} ${hour} * * *`;
+            addAndStartSchedule(niches[0].id, cronExpr, notifyFn);
             addedCount++;
         }
 
         bot.sendMessage(
             chatId,
-            `✅ ${addedCount} zamanlama eklendi!\n\nNiş: *${niches[0].name}*\nSaatler: ${times.join(', ')}\n\nHer gün belirtilen saatlerde otomatik içerik üretilip paylaşılacak.`,
+            t('schedule.added', { count: addedCount, niche: niches[0].name, times: times.join(', ') }),
             { parse_mode: 'Markdown' }
         );
     });
 
-    // /durum — İstatistikler
+    // /durum
     bot.onText(/\/durum/, async (msg) => {
-        if (!isAuthorized(msg)) return;
+        if (!checkAccess(msg, 'durum')) return;
         const chatId = msg.chat.id;
 
         const stats = db.getPostStats();
@@ -427,68 +430,28 @@ function registerCommands() {
         const provider = getActiveProvider();
         const twitterUser = await getMe();
 
-        let text = `📊 *NicheBot İstatistikleri*\n\n`;
-
+        let text = t('stats.header') + '\n';
         text += `🧠 *LLM:* ${provider.name} (${provider.model})\n`;
         text += twitterUser
             ? `🐦 *Twitter:* @${twitterUser.username}\n`
-            : `🐦 *Twitter:* Bağlı değil\n`;
-        text += `📅 *Aktif Görevler:* ${getActiveJobCount()}\n\n`;
-
-        text += `📝 *İçerik:*\n`;
-        text += `  Toplam: ${stats.total || 0}\n`;
-        text += `  Paylaşılan: ${stats.published || 0}\n`;
-        text += `  Taslak: ${stats.drafts || 0}\n`;
-        text += `  Bugün: ${stats.today || 0}/${config.maxDailyPosts}\n\n`;
-
-        text += `🏷 *Nişler (${niches.length}):* ${niches.map((n) => n.name).join(', ') || 'Yok'}`;
+            : `🐦 *Twitter:* ${t('bot.twitter_not_connected')}\n`;
+        text += `📅 *Active Jobs:* ${getActiveJobCount()}\n\n`;
+        text += t('stats.content_header') + '\n';
+        text += t('stats.total', { count: stats.total || 0 }) + '\n';
+        text += t('stats.published', { count: stats.published || 0 }) + '\n';
+        text += t('stats.drafts', { count: stats.drafts || 0 }) + '\n';
+        text += t('stats.today', { count: stats.today || 0, max: config.maxDailyPosts }) + '\n\n';
+        text += t('stats.niches_label', { count: niches.length, list: niches.map((n) => n.name).join(', ') || '-' });
 
         bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
     });
 
-    // /yardim — Detaylı yardım
-    bot.onText(/\/yardim/, (msg) => {
-        if (!isAuthorized(msg)) return;
-        const chatId = msg.chat.id;
-
-        const text = `📖 *NicheBot Yardım*
-
-*Niş Yönetimi:*
-\`/niche <konu>\` — Yeni niş ekle
-\`/nisler\` — Aktif nişleri göster
-\`/sil <konu>\` — Niş kaldır
-
-*İçerik Üretimi:*
-\`/uret\` — İlk niş için tweet üret
-\`/uret <konu>\` — Belirli niş için üret
-\`/thread <sayı>\` — Thread üret (varsayılan: 4)
-
-*Paylaşım:*
-\`/onayla\` — Önizlenen içeriği Twitter'da paylaş
-\`/reddet\` — Yenisini üret
-
-*Profil Analizi:*
-\`/analiz <kullanıcıadı>\` — Twitter profilini analiz et
-
-*Zamanlama:*
-\`/zamanlama 09:00\` — Her gün 09:00'da paylaş
-\`/zamanlama 09:00,18:00\` — Günde 2 kez
-\`/zamanlama kapat\` — Otomatik paylaşımı durdur
-
-*Genel:*
-\`/durum\` — İstatistikler
-\`/start\` — Başlangıç + durum`;
-
-        bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
-    });
-
-    // Düz metin mesajları — düzenleme olarak kullan
+    // Düz metin — düzenleme
     bot.on('message', (msg) => {
-        if (!isAuthorized(msg)) return;
-        if (msg.text?.startsWith('/')) return; // Komutları atla
+        if (config.telegram.allowedUserId && msg.from.id !== config.telegram.allowedUserId) return;
+        if (msg.text?.startsWith('/')) return;
 
         if (pendingPost && msg.text) {
-            // Kullanıcı düzenlenmiş metin gönderdi
             pendingPost.content = msg.text;
             const niche = db.getNicheByName(pendingPost.nicheName);
             if (niche) {
@@ -497,7 +460,7 @@ function registerCommands() {
 
             bot.sendMessage(
                 msg.chat.id,
-                `✏️ İçerik güncellendi!\n\n${msg.text}\n\n✅ /onayla — Paylaş\n🔄 /reddet — Başka bir tane`,
+                `${t('generate.updated')}\n\n${msg.text}\n\n${t('generate.approve')} | ${t('generate.reject')}`,
                 { parse_mode: 'Markdown' }
             );
         }
@@ -505,18 +468,12 @@ function registerCommands() {
 }
 
 /**
- * Yetki kontrolü
+ * Scheduler için bildirim fonksiyonu üret
  */
-function isAuthorized(msg) {
-    if (!config.telegram.allowedUserId) return true;
-    return msg.from.id === config.telegram.allowedUserId;
+function getSchedulerNotifyFn() {
+    const chatId = db.getSetting('telegram_chat_id');
+    if (!chatId || !bot) return null;
+    return (text) => bot.sendMessage(parseInt(chatId), text, { parse_mode: 'Markdown' });
 }
 
-/**
- * Bildirim gönderme fonksiyonu (scheduler için)
- */
-function getNotifyFunction(chatId) {
-    return (text) => bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
-}
-
-module.exports = { initBot, getNotifyFunction };
+module.exports = { initBot, stopBot, getSchedulerNotifyFn };
