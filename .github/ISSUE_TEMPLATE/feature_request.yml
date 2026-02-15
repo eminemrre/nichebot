@@ -1,0 +1,30 @@
+name: Feature Request
+description: Propose a new capability or improvement
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Proposals are welcome. Please focus on user value and implementation impact.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What limitation does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe behavior, API/command changes, and expected output.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Optional but helpful.
+    validations:
+      required: false

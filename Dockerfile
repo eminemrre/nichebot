@@ -10,12 +10,12 @@ RUN npm ci --only=production
 COPY . .
 
 # Data volume
-RUN mkdir -p /app/data
+RUN mkdir -p /root/.nichebot/data
 
-VOLUME ["/app/data"]
+VOLUME ["/root/.nichebot/data"]
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
   CMD node -e "console.log('ok')" || exit 1
 
-CMD ["node", "src/index.js"]
+CMD ["node", "src/cli.js", "start"]

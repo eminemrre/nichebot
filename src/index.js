@@ -1,4 +1,4 @@
-const { config, validateConfig } = require('./config');
+const { config, reloadConfig, validateConfig, formatValidationReport } = require('./config');
 const logger = require('./utils/logger');
 const { init: initI18n } = require('./utils/i18n');
 const { initDatabase, closeDatabase, getSetting } = require('./db/database');
@@ -13,6 +13,8 @@ console.log(`
 ╚══════════════════════════════════════╝
 `);
 
+reloadConfig();
+
 // 1. Logger başlat
 logger.init(config.logLevel);
 
@@ -20,12 +22,23 @@ logger.init(config.logLevel);
 const validation = validateConfig();
 
 if (validation.warnings.length > 0) {
-    validation.warnings.forEach((w) => logger.warn(w));
+    validation.warnings.forEach((w) => {
+        logger.warn(`${w.code}: ${w.message}`, {
+            field: w.field,
+            fix: w.fix,
+        });
+    });
 }
 
 if (!validation.valid) {
-    validation.errors.forEach((e) => logger.error(e));
-    logger.error('Copy .env.example to .env and fill in your API keys: cp .env.example .env');
+    validation.errors.forEach((e) => {
+        logger.error(`${e.code}: ${e.message}`, {
+            field: e.field,
+            fix: e.fix,
+        });
+    });
+    logger.error(formatValidationReport(validation));
+    logger.error('Run "nichebot setup" to generate/update your runtime config.');
     process.exit(1);
 }
 

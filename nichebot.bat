@@ -25,7 +25,7 @@ if not exist "%~dp0node_modules" (
     echo.
 )
 
-:: Run
+:: Run (start mode with setup fallback)
 cd /d "%~dp0"
-node src/cli.js
+node src/cli.js start
 pause

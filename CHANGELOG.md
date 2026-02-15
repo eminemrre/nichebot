@@ -4,6 +4,24 @@ All notable changes to NicheBot will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [Unreleased]
+
+## [1.2.0] - 2026-02-15
+
+### Added
+- ✅ Native test suite (`node:test`) for config, runtime paths, CLI doctor, and helper utilities
+- 🧪 Quality scripts: `npm run lint`, `npm test`, `npm run quality`
+- ⚙️ GitHub Actions CI pipeline (Node 18 + 20)
+- 🗂 GitHub Issue templates and PR template
+- 🔐 `SECURITY.md` and `CODE_OF_CONDUCT.md`
+- 📘 Production runbook: `docs/PRODUCTION.md`
+- ✅ Production checklist: `docs/PRODUCTION_CHECKLIST.md`
+- 🚀 v1.2.0 release note draft + tag plan: `docs/RELEASE_v1.2.0.md`
+
+### Changed
+- README expanded with CI badge, quality gates, and production docs links
+- CONTRIBUTING updated with stricter quality expectations
+
 ## [1.1.0] - 2026-02-15
 
 ### Added

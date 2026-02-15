@@ -5,7 +5,8 @@ services:
     restart: unless-stopped
     env_file: .env
     volumes:
-      - ./data:/app/data
+      - ./.env:/root/.nichebot/.env:ro
+      - ./data:/root/.nichebot/data
     environment:
       - NODE_ENV=production
       - TZ=Europe/Istanbul

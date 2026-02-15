@@ -25,7 +25,7 @@ Open an issue with the `enhancement` label describing:
 1. Fork the repository
 2. Create a feature branch: `git checkout -b feature/my-feature`
 3. Make your changes
-4. Test locally: `npm start`
+4. Test locally: `npm run quality` and (if config changes) `npm run doctor -- --json`
 5. Commit with clear messages: `git commit -m "feat: add Bluesky support"`
 6. Push and open a PR
 
@@ -58,6 +58,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 - Descriptive variable names
 - JSDoc comments for public functions
 - Handle errors gracefully
+- Keep `npm run lint` and `npm test` green before opening a PR
 
 ## License
 

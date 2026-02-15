@@ -31,11 +31,21 @@ async function retry(fn, options = {}) {
 }
 
 /**
- * Telegram Markdown V2 özel karakterlerini escape et
+ * Telegram Markdown özel karakterlerini escape et
  */
 function escapeMarkdown(text) {
     if (!text) return '';
-    return text.replace(/([_*\[\]()~`>#+\-=|{}.!\\])/g, '\\$1');
+    return String(text).replace(/([_*[\]()`\\])/g, '\\$1');
+}
+
+/**
+ * Markdown parse hatasında düz metin fallback için biçim karakterlerini temizle
+ */
+function stripMarkdownFormatting(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/\\([_*[\]()`\\])/g, '$1')
+        .replace(/[*_[\]()`]/g, '');
 }
 
 /**
@@ -86,4 +96,4 @@ class RateLimiter {
     }
 }
 
-module.exports = { retry, escapeMarkdown, sanitizeInput, RateLimiter };
+module.exports = { retry, escapeMarkdown, stripMarkdownFormatting, sanitizeInput, RateLimiter };

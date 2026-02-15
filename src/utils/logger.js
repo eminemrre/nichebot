@@ -1,7 +1,8 @@
 const fs = require('fs');
 const path = require('path');
+const { logsDir, ensureRuntimeDirs } = require('../runtime/paths');
 
-const LOG_DIR = path.join(__dirname, '..', '..', 'data', 'logs');
+const LOG_DIR = logsDir;
 const LOG_FILE = path.join(LOG_DIR, 'nichebot.log');
 const ERROR_LOG = path.join(LOG_DIR, 'error.log');
 const MAX_LOG_SIZE = 5 * 1024 * 1024; // 5MB
@@ -11,9 +12,8 @@ let currentLevel = LEVELS.info;
 
 function init(level = 'info') {
     currentLevel = LEVELS[level] ?? LEVELS.info;
-    if (!fs.existsSync(LOG_DIR)) {
-        fs.mkdirSync(LOG_DIR, { recursive: true });
-    }
+    ensureRuntimeDirs();
+    if (!fs.existsSync(LOG_DIR)) fs.mkdirSync(LOG_DIR, { recursive: true });
     rotateIfNeeded();
 }
 

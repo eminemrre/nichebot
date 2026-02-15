@@ -8,11 +8,12 @@ Generate niche content, review it, and optionally publish to Twitter/X from one 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org)
+[![CI](https://github.com/eminemre35/nichebot/actions/workflows/ci.yml/badge.svg)](https://github.com/eminemre35/nichebot/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](Dockerfile)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Overview](#overview) · [Quick Value in 5 Minutes](#quick-value-in-5-minutes) · [Key Features](#key-features) · [Architecture](#architecture-and-tech-stack) · [Quick Start](#quick-start) · [Deployment Status](#deployment-status) · [Commands](#telegram-commands)
+[Overview](#overview) · [Quick Value in 5 Minutes](#quick-value-in-5-minutes) · [Key Features](#key-features) · [Architecture](#architecture-and-tech-stack) · [Quick Start](#quick-start) · [Quality](#quality-gates) · [Deployment Status](#deployment-status) · [Commands](#telegram-commands)
 
 </div>
 
@@ -33,10 +34,10 @@ It supports:
 ## Quick Value in 5 Minutes
 
 1. Clone and install dependencies.
-2. Copy `.env.example` to `.env`.
-3. Set `TELEGRAM_BOT_TOKEN` and one provider key (`OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `DEEPSEEK_API_KEY`).
-4. Run `npm start`.
-5. In Telegram, send `/start`, then `/niche <topic>`, then `/uret`.
+2. Run `npm link` once to enable the global `nichebot` command.
+3. Run `nichebot setup` (interactive wizard).
+4. Run `nichebot doctor` for preflight checks.
+5. Run `nichebot start`.
 
 ## Key Features
 
@@ -76,17 +77,43 @@ It supports:
 
 - Node.js 18+ (or Docker)
 - Telegram bot token from [@BotFather](https://t.me/BotFather)
+- Telegram numeric user id from [@userinfobot](https://t.me/userinfobot) (`TELEGRAM_ALLOWED_USER_ID` is mandatory)
 - At least one LLM API key
 - Optional Twitter API credentials
 
-### Local run
+### Local terminal-first run (recommended)
 
 ```bash
 git clone https://github.com/eminemre35/nichebot.git
 cd nichebot
 npm install
-cp .env.example .env
-npm start
+npm link
+nichebot setup
+nichebot doctor
+nichebot start
+```
+
+If `nichebot` is not found after `npm link`, add your global npm bin to `PATH`:
+
+```bash
+export PATH="$(npm prefix -g)/bin:$PATH"
+```
+
+### Runtime paths
+
+- Config: `~/.nichebot/.env`
+- SQLite DB: `~/.nichebot/data/nichebot.db`
+- Logs: `~/.nichebot/data/logs/`
+- Override runtime home: `NICHEBOT_HOME=/custom/path`
+
+### CLI commands
+
+```bash
+nichebot                # alias: nichebot start
+nichebot setup          # interactive setup wizard
+nichebot doctor         # validation report
+nichebot doctor --json  # machine-readable report
+nichebot start          # validate + start bot
 ```
 
 ### Docker run
@@ -96,6 +123,20 @@ cp .env.example .env
 docker compose up -d
 docker compose logs -f
 ```
+
+## Quality Gates
+
+```bash
+npm run lint
+npm test
+npm run quality
+```
+
+- CI runs on Node 18 and Node 20.
+- PR template, issue templates, and workflow checks are included.
+- Production runbook: [`docs/PRODUCTION.md`](docs/PRODUCTION.md)
+- Production checklist: [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md)
+- Release notes draft: [`docs/RELEASE_v1.2.0.md`](docs/RELEASE_v1.2.0.md)
 
 ## Deployment Status
 
@@ -137,6 +178,8 @@ Contributions are welcome.
 - Start with [CONTRIBUTING.md](CONTRIBUTING.md).
 - Open an issue for behavior-changing proposals.
 - Submit PRs with clear rationale and testing notes.
+- Security process: [SECURITY.md](SECURITY.md)
+- Community standards: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
 ## License
 

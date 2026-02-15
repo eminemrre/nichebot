@@ -6,12 +6,55 @@ const { analyzeProfile, formatAnalysisForTelegram } = require('../twitter/analyz
 const { addAndStartSchedule, getActiveJobCount, stopAll } = require('../scheduler/cron');
 const db = require('../db/database');
 const { t } = require('../utils/i18n');
-const { RateLimiter, sanitizeInput } = require('../utils/helpers');
+const { RateLimiter, escapeMarkdown, stripMarkdownFormatting, sanitizeInput } = require('../utils/helpers');
 const logger = require('../utils/logger');
 
 let bot;
 let pendingPost = null;
 const rateLimiter = new RateLimiter(3000); // 3 saniye cooldown
+
+function md(value) {
+    return escapeMarkdown(String(value ?? ''));
+}
+
+function isMarkdownParseError(error) {
+    const message = String(error?.message || '').toLowerCase();
+    return message.includes('parse entities') || message.includes("can't parse");
+}
+
+function sendMessageSafe(chatId, text, options = {}) {
+    if (!bot) return Promise.resolve(null);
+
+    const sendOptions = { ...options };
+    const parseMode = sendOptions.parseMode || sendOptions.parse_mode || null;
+    delete sendOptions.parseMode;
+    if (parseMode) sendOptions.parse_mode = parseMode;
+
+    return bot.sendMessage(chatId, text, sendOptions).catch(async (error) => {
+        if (parseMode === 'Markdown' && isMarkdownParseError(error)) {
+            logger.warn('Telegram Markdown parse failed, retrying as plain text.', {
+                chatId,
+                error: error.message,
+            });
+            const fallback = stripMarkdownFormatting(text);
+            const plainOptions = { ...sendOptions };
+            delete plainOptions.parse_mode;
+
+            try {
+                return await bot.sendMessage(chatId, fallback, plainOptions);
+            } catch (fallbackError) {
+                logger.error('Telegram plain-text fallback failed.', {
+                    chatId,
+                    error: fallbackError.message,
+                });
+                return null;
+            }
+        }
+
+        logger.error('Telegram sendMessage failed.', { chatId, error: error.message });
+        return null;
+    });
+}
 
 /**
  * Telegram botunu başlat
@@ -42,7 +85,7 @@ function checkAccess(msg, command = 'general') {
 
     // Yetki kontrolü
     if (config.telegram.allowedUserId && msg.from.id !== config.telegram.allowedUserId) {
-        bot.sendMessage(chatId, t('bot.unauthorized'));
+        sendMessageSafe(chatId, t('bot.unauthorized'));
         return false;
     }
 
@@ -50,7 +93,7 @@ function checkAccess(msg, command = 'general') {
     const key = `${msg.from.id}:${command}`;
     if (!rateLimiter.canProceed(key)) {
         const remaining = Math.ceil(rateLimiter.getRemainingMs(key) / 1000);
-        bot.sendMessage(chatId, t('bot.rate_limited', { seconds: remaining }));
+        sendMessageSafe(chatId, t('bot.rate_limited', { seconds: remaining }));
         return false;
     }
 
@@ -73,9 +116,9 @@ function registerCommands() {
 
         let text = t('bot.welcome') + '\n\n';
         text += t('bot.connection_status') + '\n';
-        text += `${t('bot.llm_label')} ✅ ${provider.name} (${provider.model})\n`;
+        text += `${t('bot.llm_label')} ✅ ${md(provider.name)} (${md(provider.model)})\n`;
         text += twitterUser
-            ? `${t('bot.twitter_label')} ${t('bot.twitter_connected', { username: twitterUser.username })}\n`
+            ? `${t('bot.twitter_label')} ${t('bot.twitter_connected', { username: md(twitterUser.username) })}\n`
             : `${t('bot.twitter_label')} ${t('bot.twitter_not_connected')}\n`;
         text += t('bot.active_jobs', { count: getActiveJobCount() }) + '\n';
         text += t('bot.commands_header') + '\n';
@@ -91,7 +134,7 @@ function registerCommands() {
         text += `/durum — Statistics\n`;
         text += `/dil <tr|en> — Change language`;
 
-        bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+        sendMessageSafe(chatId, text, { parse_mode: 'Markdown' });
     });
 
     // /dil — Dil değiştir
@@ -101,7 +144,7 @@ function registerCommands() {
         const lang = match?.[1];
 
         if (!lang) {
-            bot.sendMessage(chatId, '🌍 `/dil tr` — Türkçe\n🌍 `/dil en` — English', { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, '🌍 `/dil tr` — Türkçe\n🌍 `/dil en` — English', { parse_mode: 'Markdown' });
             return;
         }
 
@@ -109,7 +152,7 @@ function registerCommands() {
         setLanguage(lang);
         db.setSetting('language', lang);
 
-        bot.sendMessage(chatId, lang === 'tr' ? '✅ Dil Türkçe olarak ayarlandı.' : '✅ Language set to English.');
+        sendMessageSafe(chatId, lang === 'tr' ? '✅ Dil Türkçe olarak ayarlandı.' : '✅ Language set to English.');
     });
 
     // /niche <konu>
@@ -120,15 +163,15 @@ function registerCommands() {
         const nicheName = sanitizeInput(raw, 50);
 
         if (!nicheName || !/^[\w\sçğıöşüÇĞİÖŞÜa-zA-Z0-9]+$/.test(nicheName)) {
-            bot.sendMessage(chatId, t('niche.invalid_name'));
+            sendMessageSafe(chatId, t('niche.invalid_name'));
             return;
         }
 
         const niche = db.addNiche(nicheName);
         if (niche) {
-            bot.sendMessage(chatId, t('niche.added', { name: niche.name }), { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, t('niche.added', { name: md(niche.name) }), { parse_mode: 'Markdown' });
         } else {
-            bot.sendMessage(chatId, t('niche.exists', { name: nicheName }));
+            sendMessageSafe(chatId, t('niche.exists', { name: md(nicheName) }), { parse_mode: 'Markdown' });
         }
     });
 
@@ -139,16 +182,16 @@ function registerCommands() {
         const niches = db.getAllNiches();
 
         if (niches.length === 0) {
-            bot.sendMessage(chatId, t('niche.empty'), { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, t('niche.empty'), { parse_mode: 'Markdown' });
             return;
         }
 
         let text = t('niche.list_header', { count: niches.length }) + '\n';
         niches.forEach((n, i) => {
-            text += `${i + 1}. *${n.name}* — ${n.tone}\n`;
+            text += `${i + 1}. *${md(n.name)}* — ${md(n.tone)}\n`;
         });
 
-        bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+        sendMessageSafe(chatId, text, { parse_mode: 'Markdown' });
     });
 
     // /sil <konu>
@@ -158,9 +201,9 @@ function registerCommands() {
         const nicheName = sanitizeInput(match[1], 50);
 
         if (db.removeNiche(nicheName)) {
-            bot.sendMessage(chatId, t('niche.removed', { name: nicheName }), { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, t('niche.removed', { name: md(nicheName) }), { parse_mode: 'Markdown' });
         } else {
-            bot.sendMessage(chatId, t('niche.not_found', { name: nicheName }));
+            sendMessageSafe(chatId, t('niche.not_found', { name: md(nicheName) }), { parse_mode: 'Markdown' });
         }
     });
 
@@ -171,7 +214,7 @@ function registerCommands() {
 
         const niches = db.getAllNiches();
         if (niches.length === 0) {
-            bot.sendMessage(chatId, t('niche.add_first'), { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, t('niche.add_first'), { parse_mode: 'Markdown' });
             return;
         }
 
@@ -179,11 +222,11 @@ function registerCommands() {
         const niche = db.getNicheByName(nicheName);
 
         if (!niche) {
-            bot.sendMessage(chatId, t('niche.not_found', { name: nicheName }));
+            sendMessageSafe(chatId, t('niche.not_found', { name: md(nicheName) }), { parse_mode: 'Markdown' });
             return;
         }
 
-        bot.sendMessage(chatId, t('generate.generating', { niche: niche.name }), { parse_mode: 'Markdown' });
+        sendMessageSafe(chatId, t('generate.generating', { niche: md(niche.name) }), { parse_mode: 'Markdown' });
 
         try {
             const profileAnalysis = db.getLatestProfileAnalysis(db.getSetting('twitter_username', ''));
@@ -200,15 +243,15 @@ function registerCommands() {
 
             pendingPost = { id: saved.lastInsertRowid, content: fullContent, nicheName: niche.name };
 
-            let preview = t('generate.preview_header') + fullContent + '\n\n';
-            preview += `${t('generate.niche_label', { niche: niche.name })}\n`;
+            let preview = t('generate.preview_header') + md(fullContent) + '\n\n';
+            preview += `${t('generate.niche_label', { niche: md(niche.name) })}\n`;
             preview += `${t('generate.char_count', { count: fullContent.length })}\n\n`;
             preview += `${t('generate.approve')}\n${t('generate.reject')}\n${t('generate.edit_hint')}`;
 
-            bot.sendMessage(chatId, preview, { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, preview, { parse_mode: 'Markdown' });
         } catch (error) {
             logger.error('Tweet üretme hatası', { error: error.message });
-            bot.sendMessage(chatId, t('generate.error', { error: error.message }));
+            sendMessageSafe(chatId, t('generate.error', { error: md(error.message) }), { parse_mode: 'Markdown' });
         }
     });
 
@@ -220,12 +263,12 @@ function registerCommands() {
 
         const niches = db.getAllNiches();
         if (niches.length === 0) {
-            bot.sendMessage(chatId, t('niche.add_first'), { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, t('niche.add_first'), { parse_mode: 'Markdown' });
             return;
         }
 
         const niche = niches[0];
-        bot.sendMessage(chatId, t('thread.generating', { count, niche: niche.name }), { parse_mode: 'Markdown' });
+        sendMessageSafe(chatId, t('thread.generating', { count, niche: md(niche.name) }), { parse_mode: 'Markdown' });
 
         try {
             const result = await generateThread(niche.name, count, {
@@ -235,9 +278,9 @@ function registerCommands() {
 
             let preview = t('thread.preview_header', { count: result.tweets.length }) + '\n';
             result.tweets.forEach((tw, i) => {
-                preview += `*${i + 1}/${result.tweets.length}* ${tw}\n\n`;
+                preview += `*${i + 1}/${result.tweets.length}* ${md(tw)}\n\n`;
             });
-            if (result.hashtags) preview += `${result.hashtags}\n\n`;
+            if (result.hashtags) preview += `${md(result.hashtags)}\n\n`;
             preview += `${t('generate.approve')}\n${t('generate.reject')}`;
 
             const fullContent = result.tweets.join('\n---\n');
@@ -252,10 +295,10 @@ function registerCommands() {
                 type: 'thread',
             };
 
-            bot.sendMessage(chatId, preview, { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, preview, { parse_mode: 'Markdown' });
         } catch (error) {
             logger.error('Thread üretme hatası', { error: error.message });
-            bot.sendMessage(chatId, t('thread.error', { error: error.message }));
+            sendMessageSafe(chatId, t('thread.error', { error: md(error.message) }), { parse_mode: 'Markdown' });
         }
     });
 
@@ -265,17 +308,17 @@ function registerCommands() {
         const chatId = msg.chat.id;
 
         if (!pendingPost) {
-            bot.sendMessage(chatId, t('generate.no_pending'), { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, t('generate.no_pending'), { parse_mode: 'Markdown' });
             return;
         }
 
         if (!isTwitterConfigured()) {
-            bot.sendMessage(chatId, t('publish.no_twitter'));
+            sendMessageSafe(chatId, t('publish.no_twitter'));
             pendingPost = null;
             return;
         }
 
-        bot.sendMessage(chatId, t('publish.publishing'));
+        sendMessageSafe(chatId, t('publish.publishing'));
 
         try {
             let result;
@@ -293,12 +336,12 @@ function registerCommands() {
             if (result.success) {
                 const tweetId = result.tweetId || result.tweetIds?.[0];
                 db.markPostAsPublished(pendingPost.id, tweetId);
-                bot.sendMessage(chatId, t('publish.success', { tweetId }), { parse_mode: 'Markdown' });
+                sendMessageSafe(chatId, t('publish.success', { tweetId: md(tweetId) }), { parse_mode: 'Markdown' });
             } else {
-                bot.sendMessage(chatId, t('publish.error', { error: result.error }));
+                sendMessageSafe(chatId, t('publish.error', { error: md(result.error) }), { parse_mode: 'Markdown' });
             }
         } catch (error) {
-            bot.sendMessage(chatId, t('publish.error', { error: error.message }));
+            sendMessageSafe(chatId, t('publish.error', { error: md(error.message) }), { parse_mode: 'Markdown' });
         }
 
         pendingPost = null;
@@ -310,14 +353,14 @@ function registerCommands() {
         const chatId = msg.chat.id;
 
         if (!pendingPost) {
-            bot.sendMessage(chatId, t('generate.no_pending'), { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, t('generate.no_pending'), { parse_mode: 'Markdown' });
             return;
         }
 
         const nicheName = pendingPost.nicheName;
         pendingPost = null;
 
-        bot.sendMessage(chatId, t('generate.generating', { niche: nicheName }), { parse_mode: 'Markdown' });
+        sendMessageSafe(chatId, t('generate.generating', { niche: md(nicheName) }), { parse_mode: 'Markdown' });
 
         try {
             const result = await generateTweet(nicheName, { language: config.defaultLanguage });
@@ -328,12 +371,12 @@ function registerCommands() {
 
             pendingPost = { id: saved.lastInsertRowid, content: fullContent, nicheName };
 
-            let preview = t('generate.new_preview') + fullContent + '\n\n';
+            let preview = t('generate.new_preview') + md(fullContent) + '\n\n';
             preview += `${t('generate.approve')} | ${t('generate.reject')}`;
 
-            bot.sendMessage(chatId, preview, { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, preview, { parse_mode: 'Markdown' });
         } catch (error) {
-            bot.sendMessage(chatId, t('generate.error', { error: error.message }));
+            sendMessageSafe(chatId, t('generate.error', { error: md(error.message) }), { parse_mode: 'Markdown' });
         }
     });
 
@@ -344,25 +387,25 @@ function registerCommands() {
         const username = sanitizeInput(match?.[1]?.replace('@', ''), 30);
 
         if (!username) {
-            bot.sendMessage(chatId, t('analyze.usage'), { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, t('analyze.usage'), { parse_mode: 'Markdown' });
             return;
         }
 
         if (!isTwitterConfigured()) {
-            bot.sendMessage(chatId, t('bot.api_not_ready', { service: 'Twitter' }));
+            sendMessageSafe(chatId, t('bot.api_not_ready', { service: 'Twitter' }));
             return;
         }
 
-        bot.sendMessage(chatId, t('analyze.analyzing', { username }));
+        sendMessageSafe(chatId, t('analyze.analyzing', { username: md(username) }), { parse_mode: 'Markdown' });
 
         try {
             const analysis = await analyzeProfile(username);
             const text = formatAnalysisForTelegram(analysis);
             db.setSetting('twitter_username', username);
-            bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, text, { parse_mode: 'Markdown' });
         } catch (error) {
             logger.error('Analiz hatası', { username, error: error.message });
-            bot.sendMessage(chatId, t('analyze.error', { error: error.message }));
+            sendMessageSafe(chatId, t('analyze.error', { error: md(error.message) }), { parse_mode: 'Markdown' });
         }
     });
 
@@ -376,19 +419,19 @@ function registerCommands() {
             let text = t('schedule.header') + '\n\n';
             text += t('schedule.examples') + '\n\n';
             text += t('schedule.active_count', { count: getActiveJobCount() });
-            bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, text, { parse_mode: 'Markdown' });
             return;
         }
 
         if (param === 'kapat' || param === 'stop') {
             stopAll();
-            bot.sendMessage(chatId, t('schedule.stopped'));
+            sendMessageSafe(chatId, t('schedule.stopped'));
             return;
         }
 
         const niches = db.getAllNiches();
         if (niches.length === 0) {
-            bot.sendMessage(chatId, t('niche.add_first'), { parse_mode: 'Markdown' });
+            sendMessageSafe(chatId, t('niche.add_first'), { parse_mode: 'Markdown' });
             return;
         }
 
@@ -397,14 +440,14 @@ function registerCommands() {
         for (const time of times) {
             const timeMatch = time.match(/^(\d{1,2}):(\d{2})$/);
             if (!timeMatch) {
-                bot.sendMessage(chatId, t('schedule.invalid_time', { time }));
+                sendMessageSafe(chatId, t('schedule.invalid_time', { time: md(time) }), { parse_mode: 'Markdown' });
                 return;
             }
         }
 
         let addedCount = 0;
         // Bildirim fonksiyonu — scheduler'dan Telegram'a bildirim
-        const notifyFn = (text) => bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+        const notifyFn = (text) => sendMessageSafe(chatId, text, { parse_mode: 'Markdown' });
 
         for (const time of times) {
             const [, hour, minute] = time.match(/^(\d{1,2}):(\d{2})$/);
@@ -413,9 +456,9 @@ function registerCommands() {
             addedCount++;
         }
 
-        bot.sendMessage(
+        sendMessageSafe(
             chatId,
-            t('schedule.added', { count: addedCount, niche: niches[0].name, times: times.join(', ') }),
+            t('schedule.added', { count: addedCount, niche: md(niches[0].name), times: md(times.join(', ')) }),
             { parse_mode: 'Markdown' }
         );
     });
@@ -433,7 +476,7 @@ function registerCommands() {
         let text = t('stats.header') + '\n';
         text += `🧠 *LLM:* ${provider.name} (${provider.model})\n`;
         text += twitterUser
-            ? `🐦 *Twitter:* @${twitterUser.username}\n`
+            ? `🐦 *Twitter:* @${md(twitterUser.username)}\n`
             : `🐦 *Twitter:* ${t('bot.twitter_not_connected')}\n`;
         text += `📅 *Active Jobs:* ${getActiveJobCount()}\n\n`;
         text += t('stats.content_header') + '\n';
@@ -441,9 +484,9 @@ function registerCommands() {
         text += t('stats.published', { count: stats.published || 0 }) + '\n';
         text += t('stats.drafts', { count: stats.drafts || 0 }) + '\n';
         text += t('stats.today', { count: stats.today || 0, max: config.maxDailyPosts }) + '\n\n';
-        text += t('stats.niches_label', { count: niches.length, list: niches.map((n) => n.name).join(', ') || '-' });
+        text += t('stats.niches_label', { count: niches.length, list: md(niches.map((n) => n.name).join(', ') || '-') });
 
-        bot.sendMessage(chatId, text, { parse_mode: 'Markdown' });
+        sendMessageSafe(chatId, text, { parse_mode: 'Markdown' });
     });
 
     // Düz metin — düzenleme
@@ -458,9 +501,9 @@ function registerCommands() {
                 db.savePost(niche.id, msg.text, 'tweet', 'draft');
             }
 
-            bot.sendMessage(
+            sendMessageSafe(
                 msg.chat.id,
-                `${t('generate.updated')}\n\n${msg.text}\n\n${t('generate.approve')} | ${t('generate.reject')}`,
+                `${t('generate.updated')}\n\n${md(msg.text)}\n\n${t('generate.approve')} | ${t('generate.reject')}`,
                 { parse_mode: 'Markdown' }
             );
         }
@@ -473,7 +516,7 @@ function registerCommands() {
 function getSchedulerNotifyFn() {
     const chatId = db.getSetting('telegram_chat_id');
     if (!chatId || !bot) return null;
-    return (text) => bot.sendMessage(parseInt(chatId), text, { parse_mode: 'Markdown' });
+    return (text) => sendMessageSafe(Number.parseInt(chatId, 10), text, { parse_mode: 'Markdown' });
 }
 
 module.exports = { initBot, stopBot, getSchedulerNotifyFn };

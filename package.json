@@ -1,14 +1,29 @@
 {
   "name": "nichebot",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Open-source AI-powered social media content bot. Generate niche content for Twitter/X via Telegram. Bring your own API keys.",
   "main": "src/index.js",
+  "files": [
+    "src/",
+    ".env.example",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md",
+    "CODE_OF_CONDUCT.md",
+    "nichebot.sh",
+    "nichebot.bat"
+  ],
   "bin": {
     "nichebot": "src/cli.js"
   },
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "start": "node src/cli.js start",
+    "dev": "node --watch src/cli.js start",
+    "setup": "node src/cli.js setup",
+    "doctor": "node src/cli.js doctor",
+    "lint": "node scripts/lint.js",
+    "test": "node --test",
+    "quality": "npm run lint && npm run test"
   },
   "keywords": [
     "ai",
@@ -23,6 +38,9 @@
     "cli"
   ],
   "author": "eminemre35",
+  "engines": {
+    "node": ">=18"
+  },
   "license": "MIT",
   "dependencies": {
     "better-sqlite3": "^11.0.0",

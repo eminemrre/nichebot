@@ -1,10 +1,6 @@
 const Database = require('better-sqlite3');
-const path = require('path');
-const fs = require('fs');
 const logger = require('../utils/logger');
-
-const DATA_DIR = path.join(__dirname, '..', '..', 'data');
-const DB_PATH = path.join(DATA_DIR, 'nichebot.db');
+const { dataDir, dbPath, ensureRuntimeDirs } = require('../runtime/paths');
 
 let db;
 
@@ -12,11 +8,8 @@ let db;
  * Veritabanını başlat ve tabloları oluştur
  */
 function initDatabase() {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-
-  db = new Database(DB_PATH);
+  ensureRuntimeDirs();
+  db = new Database(dbPath);
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
 
@@ -80,7 +73,7 @@ function initDatabase() {
     )
   `);
 
-  logger.info('Veritabanı hazır', { path: DB_PATH });
+  logger.info('Veritabanı hazır', { path: dbPath, dataDir });
   return db;
 }
 

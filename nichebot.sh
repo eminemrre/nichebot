@@ -30,5 +30,5 @@ if [ ! -d "node_modules" ]; then
     echo ""
 fi
 
-# Run
-node src/cli.js
+# Run (start mode with setup fallback)
+node src/cli.js start
