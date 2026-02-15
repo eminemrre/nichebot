@@ -244,8 +244,20 @@ async function promptInput(rl, prompt, options = {}) {
     const { defaultValue = '', required = false, validator = null, mask = false } = options;
 
     while (true) {
-        const suffix = defaultValue ? ` [${defaultValue}]` : '';
-        const raw = await rl.question(`${prompt}${suffix}: `);
+        const suffix = defaultValue
+            ? (mask ? ' [saved]' : ` [${defaultValue}]`)
+            : '';
+        let raw;
+        if (mask) {
+            rl.pause();
+            try {
+                raw = await promptHiddenInput(`${prompt}${suffix}: `);
+            } finally {
+                rl.resume();
+            }
+        } else {
+            raw = await rl.question(`${prompt}${suffix}: `);
+        }
         const value = (raw || defaultValue || '').trim();
 
         if (required && !value) {
@@ -266,6 +278,55 @@ async function promptInput(rl, prompt, options = {}) {
         }
         return value;
     }
+}
+
+function promptHiddenInput(prompt) {
+    return new Promise((resolve, reject) => {
+        if (!stdin.isTTY || !stdout.isTTY) {
+            reject(new Error('Secret prompt requires TTY.'));
+            return;
+        }
+
+        stdout.write(prompt);
+        let value = '';
+
+        function cleanup() {
+            stdin.removeListener('data', onData);
+            if (stdin.isTTY) stdin.setRawMode(false);
+            stdin.pause();
+        }
+
+        function onData(chunk) {
+            const text = String(chunk || '');
+            for (const ch of text) {
+                if (ch === '\r' || ch === '\n') {
+                    stdout.write('\n');
+                    cleanup();
+                    resolve(value);
+                    return;
+                }
+
+                if (ch === '\u0003') {
+                    cleanup();
+                    reject(new Error('Prompt interrupted by user.'));
+                    return;
+                }
+
+                if (ch === '\u007f' || ch === '\b' || ch === '\u0008') {
+                    if (value.length > 0) value = value.slice(0, -1);
+                    continue;
+                }
+
+                if (ch >= ' ') {
+                    value += ch;
+                }
+            }
+        }
+
+        stdin.resume();
+        stdin.setRawMode(true);
+        stdin.on('data', onData);
+    });
 }
 
 function validateProvider(value) {
@@ -307,6 +368,7 @@ async function runSetupWizard() {
         const telegramToken = await promptInput(rl, 'Telegram bot token', {
             defaultValue: current.TELEGRAM_BOT_TOKEN || '',
             required: true,
+            mask: true,
         });
 
         const telegramAllowedUserId = await promptInput(rl, 'Telegram allowed user id', {
@@ -335,10 +397,22 @@ async function runSetupWizard() {
         });
 
         console.log('\nTwitter setup is optional. Leave blank to skip.');
-        const twitterApiKey = await promptInput(rl, 'TWITTER_API_KEY', { defaultValue: current.TWITTER_API_KEY || '' });
-        const twitterApiSecret = await promptInput(rl, 'TWITTER_API_SECRET', { defaultValue: current.TWITTER_API_SECRET || '' });
-        const twitterAccessToken = await promptInput(rl, 'TWITTER_ACCESS_TOKEN', { defaultValue: current.TWITTER_ACCESS_TOKEN || '' });
-        const twitterAccessSecret = await promptInput(rl, 'TWITTER_ACCESS_SECRET', { defaultValue: current.TWITTER_ACCESS_SECRET || '' });
+        const twitterApiKey = await promptInput(rl, 'TWITTER_API_KEY', {
+            defaultValue: current.TWITTER_API_KEY || '',
+            mask: true,
+        });
+        const twitterApiSecret = await promptInput(rl, 'TWITTER_API_SECRET', {
+            defaultValue: current.TWITTER_API_SECRET || '',
+            mask: true,
+        });
+        const twitterAccessToken = await promptInput(rl, 'TWITTER_ACCESS_TOKEN', {
+            defaultValue: current.TWITTER_ACCESS_TOKEN || '',
+            mask: true,
+        });
+        const twitterAccessSecret = await promptInput(rl, 'TWITTER_ACCESS_SECRET', {
+            defaultValue: current.TWITTER_ACCESS_SECRET || '',
+            mask: true,
+        });
 
         const maxDailyPosts = await promptInput(rl, 'MAX_DAILY_POSTS', {
             defaultValue: current.MAX_DAILY_POSTS || '5',
