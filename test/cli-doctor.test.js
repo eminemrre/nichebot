@@ -7,6 +7,7 @@ const { test } = require('node:test');
 
 const ROOT = path.resolve(__dirname, '..');
 const CLI = path.join(ROOT, 'src', 'cli.js');
+const VALID_TEST_TELEGRAM_TOKEN = `123456789:${'A'.repeat(35)}`;
 
 const ENV_KEYS = [
     'TELEGRAM_BOT_TOKEN',
@@ -44,7 +45,7 @@ test('doctor --json succeeds with valid runtime env', () => {
     fs.writeFileSync(
         envFile,
         [
-            'TELEGRAM_BOT_TOKEN=token',
+            `TELEGRAM_BOT_TOKEN=${VALID_TEST_TELEGRAM_TOKEN}`,
             'TELEGRAM_ALLOWED_USER_ID=123456789',
             'LLM_PROVIDER=deepseek',
             'DEEPSEEK_API_KEY=key',
@@ -56,6 +57,9 @@ test('doctor --json succeeds with valid runtime env', () => {
             '',
         ].join('\n')
     );
+    try {
+        fs.chmodSync(envFile, 0o600);
+    } catch { }
 
     try {
         const result = spawnSync(process.execPath, [CLI, 'doctor', '--json'], {

@@ -4,6 +4,7 @@ const { envPath } = require('./runtime/paths');
 
 const VALID_PROVIDERS = ['openai', 'anthropic', 'deepseek'];
 const SUPPORTED_PROMPT_TEMPLATE_VERSIONS = ['v1'];
+const TELEGRAM_TOKEN_REGEX = /^\d{6,}:[A-Za-z0-9_-]{20,}$/;
 
 const config = {};
 
@@ -51,6 +52,16 @@ function parseInteger(rawValue, defaultValue) {
     const parsed = Number.parseInt(rawValue, 10);
     if (!Number.isFinite(parsed)) return defaultValue;
     return parsed;
+}
+
+function getFileModeOctal(filePath) {
+    if (process.platform === 'win32') return null;
+    try {
+        const stats = fs.statSync(filePath);
+        return stats.mode & 0o777;
+    } catch {
+        return null;
+    }
 }
 
 function buildConfigFromEnv() {
@@ -155,6 +166,13 @@ function validateConfig() {
             message: 'TELEGRAM_BOT_TOKEN is required.',
             fix: `Set TELEGRAM_BOT_TOKEN in ${envPath} (or run: nichebot setup).`,
         });
+    } else if (!TELEGRAM_TOKEN_REGEX.test(currentConfig.telegram.token)) {
+        addIssue(errors, {
+            code: 'INVALID_TELEGRAM_BOT_TOKEN_FORMAT',
+            field: 'TELEGRAM_BOT_TOKEN',
+            message: 'TELEGRAM_BOT_TOKEN format looks invalid.',
+            fix: 'Use a valid token from @BotFather (example: 123456789:AA...).',
+        });
     }
 
     const allowedUserValidation = currentConfig._meta.allowedUserIdValidation;
@@ -235,7 +253,7 @@ function validateConfig() {
     }
 
     if (obs.enabled && obs.host === '0.0.0.0' && !obs.token) {
-        addIssue(warnings, {
+        addIssue(currentConfig.nodeEnv === 'production' ? errors : warnings, {
             code: 'OBSERVABILITY_EXPOSED_NO_TOKEN',
             field: 'OBSERVABILITY_TOKEN',
             message: 'Observability is exposed on 0.0.0.0 without OBSERVABILITY_TOKEN.',
@@ -261,6 +279,28 @@ function validateConfig() {
             message: `QUALITY_MIN_AUTO_PUBLISH_SCORE must be between 0 and 100, got "${minAutoPublishScore}".`,
             fix: 'Set QUALITY_MIN_AUTO_PUBLISH_SCORE to a valid number (example: 65).',
         });
+    }
+
+    if (currentConfig.nodeEnv === 'production' && currentConfig.logLevel === 'debug') {
+        addIssue(warnings, {
+            code: 'DEBUG_LOG_LEVEL_IN_PRODUCTION',
+            field: 'LOG_LEVEL',
+            message: 'LOG_LEVEL=debug in production may leak sensitive operational details.',
+            fix: 'Use LOG_LEVEL=info (or warn/error) in production.',
+        });
+    }
+
+    const fileMode = getFileModeOctal(envPath);
+    if (fileMode !== null) {
+        const hasOpenPermissions = (fileMode & 0o077) !== 0;
+        if (hasOpenPermissions) {
+            addIssue(currentConfig.nodeEnv === 'production' ? errors : warnings, {
+                code: 'INSECURE_ENV_FILE_PERMISSIONS',
+                field: envPath,
+                message: `.env permissions are too open (${fileMode.toString(8)}).`,
+                fix: `Run: chmod 600 ${envPath}`,
+            });
+        }
     }
 
     return {

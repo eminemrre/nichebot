@@ -12,10 +12,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - 🚩 Automatic red-flag detection and safe one-time regeneration on blocked outputs
 - 🗃 Post metadata persistence for `prompt_version`, `quality_score`, `quality_flags`
 - 📊 Quality-related Telegram preview details and scheduler guardrails
+- 🔐 Security scripts: repository secret scan + npm audit gate (`security:scan`, `security:audit`)
+- 🤖 GitHub security workflow (`security.yml`) and weekly Dependabot updates
 
 ### Changed
 - Scheduler now skips auto-publish when quality score is below threshold (`QUALITY_MIN_AUTO_PUBLISH_SCORE`)
 - Setup/doctor/config flow includes prompt template and quality threshold settings
+- Production config validation now enforces Telegram token format and stricter production checks for observability/file permissions
 
 ## [1.2.0] - 2026-02-15
 

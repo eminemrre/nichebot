@@ -6,6 +6,7 @@ const Module = require('module');
 const { test } = require('node:test');
 
 const ROOT = path.resolve(__dirname, '..', '..');
+const VALID_TEST_TELEGRAM_TOKEN = `123456789:${'A'.repeat(35)}`;
 
 const ENV_KEYS = [
     'NICHEBOT_HOME',
@@ -77,7 +78,7 @@ function writeRuntimeEnv(homeDir, options = {}) {
     } = options;
 
     const envLines = [
-        'TELEGRAM_BOT_TOKEN=test-telegram-token',
+        `TELEGRAM_BOT_TOKEN=${VALID_TEST_TELEGRAM_TOKEN}`,
         `TELEGRAM_ALLOWED_USER_ID=${allowedUserId}`,
         'LLM_PROVIDER=deepseek',
         'DEEPSEEK_API_KEY=test-deepseek-key',
@@ -97,7 +98,11 @@ function writeRuntimeEnv(homeDir, options = {}) {
         envLines.push('TWITTER_ACCESS_SECRET=test-twitter-access-secret');
     }
 
-    fs.writeFileSync(path.join(homeDir, '.env'), `${envLines.join('\n')}\n`);
+    const envFile = path.join(homeDir, '.env');
+    fs.writeFileSync(envFile, `${envLines.join('\n')}\n`);
+    try {
+        fs.chmodSync(envFile, 0o600);
+    } catch { }
 }
 
 function mockModule(relativePath, exportsValue) {

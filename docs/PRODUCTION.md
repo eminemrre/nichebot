@@ -38,6 +38,7 @@ nichebot doctor
 - [ ] `QUALITY_MIN_AUTO_PUBLISH_SCORE` is set (recommended: `65` or higher)
 - [ ] `.env` file permissions restricted (600)
 - [ ] Runtime home backed up regularly
+- [ ] `npm run security:full` passes
 
 ## 5) Start strategy
 

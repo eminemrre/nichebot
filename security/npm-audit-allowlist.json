@@ -1,0 +1,16 @@
+{
+  "allowlist": [
+    {
+      "id": "GHSA-FJXV-7RQG-78G4",
+      "package": "form-data",
+      "expires": "2026-06-30",
+      "reason": "Transitive via node-telegram-bot-api/request stack until upstream upgrade path is validated."
+    },
+    {
+      "id": "GHSA-6RW7-VPXM-498P",
+      "package": "qs",
+      "expires": "2026-06-30",
+      "reason": "Transitive via node-telegram-bot-api/request stack until upstream upgrade path is validated."
+    }
+  ]
+}

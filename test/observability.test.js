@@ -5,6 +5,7 @@ const path = require('path');
 const { test } = require('node:test');
 
 const ROOT = path.resolve(__dirname, '..');
+const VALID_TEST_TELEGRAM_TOKEN = `123456789:${'A'.repeat(35)}`;
 
 const ENV_KEYS = [
     'NICHEBOT_HOME',
@@ -53,7 +54,7 @@ function writeEnv(homeDir) {
     fs.writeFileSync(
         path.join(homeDir, '.env'),
         [
-            'TELEGRAM_BOT_TOKEN=test-token',
+            `TELEGRAM_BOT_TOKEN=${VALID_TEST_TELEGRAM_TOKEN}`,
             'TELEGRAM_ALLOWED_USER_ID=123456789',
             'LLM_PROVIDER=deepseek',
             'DEEPSEEK_API_KEY=test-key',
@@ -70,6 +71,9 @@ function writeEnv(homeDir) {
             '',
         ].join('\n')
     );
+    try {
+        fs.chmodSync(path.join(homeDir, '.env'), 0o600);
+    } catch { }
 }
 
 test('observability server exposes health and metrics with token auth', async () => {

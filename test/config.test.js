@@ -28,6 +28,8 @@ const ENV_KEYS = [
     'NODE_ENV',
 ];
 
+const VALID_TEST_TELEGRAM_TOKEN = `123456789:${'A'.repeat(35)}`;
+
 function clearModule(modulePath) {
     const resolved = require.resolve(modulePath);
     delete require.cache[resolved];
@@ -52,13 +54,17 @@ function restoreEnv(snapshot) {
     });
 }
 
-function withConfig(envText) {
+function withConfig(envText, options = {}) {
     const tempHome = fs.mkdtempSync(path.join(os.tmpdir(), 'nichebot-config-test-'));
     const envFile = path.join(tempHome, '.env');
     const envSnapshot = snapshotEnv();
+    const mode = options.mode ?? 0o600;
 
     if (typeof envText === 'string') {
         fs.writeFileSync(envFile, envText);
+        try {
+            fs.chmodSync(envFile, mode);
+        } catch { }
     }
 
     process.env.NICHEBOT_HOME = tempHome;
@@ -96,7 +102,7 @@ test('validateConfig reports missing required fields', () => {
 
 test('validateConfig accepts a valid deepseek setup', () => {
     const ctx = withConfig(`
-TELEGRAM_BOT_TOKEN=test-telegram-token
+TELEGRAM_BOT_TOKEN=${VALID_TEST_TELEGRAM_TOKEN}
 TELEGRAM_ALLOWED_USER_ID=123456789
 LLM_PROVIDER=deepseek
 DEEPSEEK_API_KEY=test-deepseek-key
@@ -119,7 +125,7 @@ NODE_ENV=production
 
 test('validateConfig rejects partial twitter credentials', () => {
     const ctx = withConfig(`
-TELEGRAM_BOT_TOKEN=test-telegram-token
+TELEGRAM_BOT_TOKEN=${VALID_TEST_TELEGRAM_TOKEN}
 TELEGRAM_ALLOWED_USER_ID=123456789
 LLM_PROVIDER=openai
 OPENAI_API_KEY=test-openai-key
@@ -143,7 +149,7 @@ NODE_ENV=production
 
 test('validateConfig rejects invalid QUALITY_MIN_AUTO_PUBLISH_SCORE', () => {
     const ctx = withConfig(`
-TELEGRAM_BOT_TOKEN=test-telegram-token
+TELEGRAM_BOT_TOKEN=${VALID_TEST_TELEGRAM_TOKEN}
 TELEGRAM_ALLOWED_USER_ID=123456789
 LLM_PROVIDER=deepseek
 DEEPSEEK_API_KEY=test-deepseek-key
@@ -160,6 +166,78 @@ NODE_ENV=production
         const codes = result.errors.map((e) => e.code);
         assert.equal(result.valid, false);
         assert.ok(codes.includes('INVALID_QUALITY_MIN_AUTO_PUBLISH_SCORE'));
+    } finally {
+        ctx.cleanup();
+    }
+});
+
+test('validateConfig rejects invalid TELEGRAM_BOT_TOKEN format', () => {
+    const ctx = withConfig(`
+TELEGRAM_BOT_TOKEN=invalid-token
+TELEGRAM_ALLOWED_USER_ID=123456789
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=test-deepseek-key
+DEFAULT_LANGUAGE=tr
+MAX_DAILY_POSTS=5
+LOG_LEVEL=info
+TZ=UTC
+NODE_ENV=production
+`);
+
+    try {
+        const result = ctx.configModule.validateConfig();
+        const codes = result.errors.map((e) => e.code);
+        assert.equal(result.valid, false);
+        assert.ok(codes.includes('INVALID_TELEGRAM_BOT_TOKEN_FORMAT'));
+    } finally {
+        ctx.cleanup();
+    }
+});
+
+test('validateConfig rejects insecure .env permissions in production', () => {
+    const ctx = withConfig(`
+TELEGRAM_BOT_TOKEN=${VALID_TEST_TELEGRAM_TOKEN}
+TELEGRAM_ALLOWED_USER_ID=123456789
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=test-deepseek-key
+DEFAULT_LANGUAGE=tr
+MAX_DAILY_POSTS=5
+LOG_LEVEL=info
+TZ=UTC
+NODE_ENV=production
+`, { mode: 0o644 });
+
+    try {
+        const result = ctx.configModule.validateConfig();
+        const codes = result.errors.map((e) => e.code);
+        assert.equal(result.valid, false);
+        assert.ok(codes.includes('INSECURE_ENV_FILE_PERMISSIONS'));
+    } finally {
+        ctx.cleanup();
+    }
+});
+
+test('validateConfig rejects exposed observability without token in production', () => {
+    const ctx = withConfig(`
+TELEGRAM_BOT_TOKEN=${VALID_TEST_TELEGRAM_TOKEN}
+TELEGRAM_ALLOWED_USER_ID=123456789
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=test-deepseek-key
+DEFAULT_LANGUAGE=tr
+MAX_DAILY_POSTS=5
+LOG_LEVEL=info
+TZ=UTC
+NODE_ENV=production
+OBSERVABILITY_ENABLED=true
+OBSERVABILITY_HOST=0.0.0.0
+OBSERVABILITY_PORT=9464
+`);
+
+    try {
+        const result = ctx.configModule.validateConfig();
+        const codes = result.errors.map((e) => e.code);
+        assert.equal(result.valid, false);
+        assert.ok(codes.includes('OBSERVABILITY_EXPOSED_NO_TOKEN'));
     } finally {
         ctx.cleanup();
     }
