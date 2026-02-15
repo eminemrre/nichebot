@@ -1,0 +1,39 @@
+<svg width="1200" height="680" viewBox="0 0 1200 680" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">NicheBot terminal showcase</title>
+  <desc id="desc">Terminal-first NicheBot setup and doctor workflow screenshot style visual.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#0b1220" />
+      <stop offset="100%" stop-color="#121e34" />
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1b273f" />
+      <stop offset="100%" stop-color="#162036" />
+    </linearGradient>
+  </defs>
+
+  <rect x="0" y="0" width="1200" height="680" fill="url(#bg)" />
+
+  <text x="48" y="62" fill="#a5b4fc" font-family="monospace" font-size="30" font-weight="700">NicheBot Terminal-First Demo</text>
+  <text x="48" y="95" fill="#94a3b8" font-family="monospace" font-size="18">setup - doctor - start from any directory</text>
+
+  <rect x="48" y="130" width="1104" height="500" rx="14" fill="url(#panel)" stroke="#334155" stroke-width="2" />
+  <circle cx="88" cy="162" r="8" fill="#ef4444" />
+  <circle cx="116" cy="162" r="8" fill="#f59e0b" />
+  <circle cx="144" cy="162" r="8" fill="#22c55e" />
+
+  <text x="72" y="210" fill="#e2e8f0" font-family="monospace" font-size="22">$ npm link</text>
+  <text x="72" y="250" fill="#e2e8f0" font-family="monospace" font-size="22">$ nichebot setup</text>
+  <text x="106" y="286" fill="#93c5fd" font-family="monospace" font-size="18">? Language: tr</text>
+  <text x="106" y="314" fill="#93c5fd" font-family="monospace" font-size="18">? TELEGRAM_ALLOWED_USER_ID: 123456789</text>
+  <text x="106" y="342" fill="#93c5fd" font-family="monospace" font-size="18">? Provider: deepseek</text>
+
+  <text x="72" y="392" fill="#e2e8f0" font-family="monospace" font-size="22">$ nichebot doctor</text>
+  <text x="106" y="428" fill="#86efac" font-family="monospace" font-size="18">runtime.home: ~/.nichebot</text>
+  <text x="106" y="456" fill="#86efac" font-family="monospace" font-size="18">config.valid: true</text>
+  <text x="106" y="484" fill="#86efac" font-family="monospace" font-size="18">lock.active: false</text>
+  <text x="106" y="512" fill="#86efac" font-family="monospace" font-size="18">backup.latest.integrity: ok</text>
+
+  <text x="72" y="562" fill="#e2e8f0" font-family="monospace" font-size="22">$ nichebot start</text>
+  <text x="106" y="598" fill="#34d399" font-family="monospace" font-size="18">Bot started successfully. Waiting for Telegram commands...</text>
+</svg>

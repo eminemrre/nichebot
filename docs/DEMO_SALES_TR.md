@@ -4,14 +4,13 @@
 
 NicheBot, içerik üreten ekipler için terminal-first çalışan, Telegram üzerinden yönetilen self-hosted bir AI içerik operasyon botudur. Fikirden yayına kadar tüm akışı tek yerde toplar: üretim, kalite kontrol, onay, zamanlama ve ops güvenliği.
 
-## 2 dakikalık canlı demo akışı
+## 3 dakikalık canlı demo akışı
 
-1. `nichebot setup` ile kurulum sihirbazını 1 dakikada tamamla.
-2. `nichebot doctor` ile erişim/anahtar/doğrulama durumunu göster.
-3. Telegram'dan `/uret` ile içerik üret.
-4. Kalite skoru ve red-flag kontrolünü canlı göster.
-5. `/onayla` ile yayınla veya `/reddet` ile yeniden üret.
-6. `nichebot backup` ve `nichebot db doctor` ile operasyon güvenliğini göster.
+1. `00:00 - 00:40` `nichebot setup` + `nichebot doctor`.
+2. `00:40 - 01:20` Telegram'dan `/uret` ile içerik üretimi.
+3. `01:20 - 02:00` Kalite skoru ve red-flag kontrolünü göster.
+4. `02:00 - 02:35` `/onayla` ile yayınla veya `/reddet` ile yeniden üret.
+5. `02:35 - 03:00` `nichebot backup` ve `nichebot db doctor` ile ops güvenliği.
 
 ## Değer önerisi
 
@@ -25,3 +24,8 @@ NicheBot, içerik üreten ekipler için terminal-first çalışan, Telegram üze
 - “Telegram üzerinden çalışan production-grade içerik botu”
 - “Self-hosted + güvenlik odaklı + release disiplinli”
 - “Açık kaynak, hızlı kurulum, gerçek operasyon komutları”
+
+## Showcase dosyaları
+
+- Terminal görseli: `docs/assets/nichebot-terminal-showcase.svg`
+- Telegram görseli: `docs/assets/nichebot-telegram-showcase.svg`

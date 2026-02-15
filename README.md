@@ -13,7 +13,7 @@ Generate niche content, review it, and optionally publish to Twitter/X from one 
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Overview](#overview) · [Quick Value in 5 Minutes](#quick-value-in-5-minutes) · [Key Features](#key-features) · [Architecture](#architecture-and-tech-stack) · [Quick Start](#quick-start) · [Quality](#quality-gates) · [Deployment Status](#deployment-status) · [Commands](#telegram-commands)
+[Overview](#overview) · [Quick Value in 5 Minutes](#quick-value-in-5-minutes) · [Showcase](#showcase-3-minute-demo) · [Key Features](#key-features) · [Architecture](#architecture-and-tech-stack) · [Quick Start](#quick-start) · [Quality](#quality-gates) · [Deployment Status](#deployment-status) · [Commands](#telegram-commands)
 
 </div>
 
@@ -38,6 +38,43 @@ It supports:
 3. Run `nichebot setup` (interactive wizard).
 4. Run `nichebot doctor` for preflight checks.
 5. Run `nichebot start`.
+
+## Showcase: 3-Minute Demo
+
+![NicheBot terminal setup screenshot](docs/assets/nichebot-terminal-showcase.svg)
+
+![NicheBot Telegram command flow screenshot](docs/assets/nichebot-telegram-showcase.svg)
+
+`00:00 - 00:40` First-run setup and preflight:
+
+```bash
+nichebot setup
+nichebot doctor
+```
+
+`00:40 - 01:20` Telegram content generation:
+
+- Send `/uret`
+- Review generated preview
+
+`01:20 - 02:00` Quality guardrails check:
+
+- Inspect score and red-flag notes
+- Confirm ready-to-publish status
+
+`02:00 - 02:35` Publish decision:
+
+- Approve with `/onayla`
+- Or regenerate with `/reddet`
+
+`02:35 - 03:00` Production-safe ops:
+
+```bash
+nichebot backup
+nichebot db doctor
+```
+
+Full Turkish pitch/demo text: [`docs/DEMO_SALES_TR.md`](docs/DEMO_SALES_TR.md)
 
 ## Key Features
 
