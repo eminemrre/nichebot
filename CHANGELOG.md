@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - 🛑 New CLI command: `nichebot stop`
 - 💾 Runtime snapshot backups in `~/.nichebot/backups`
 - ♻️ New CLI commands: `nichebot backup`, `nichebot backup list`, `nichebot restore`
+- 🚀 Release readiness checker (`npm run release:check`)
 
 ### Changed
 - Scheduler now skips auto-publish when quality score is below threshold (`QUALITY_MIN_AUTO_PUBLISH_SCORE`)
@@ -25,6 +26,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Production config validation now enforces Telegram token format and stricter production checks for observability/file permissions
 - Doctor report now includes runtime lock status
 - Doctor report now includes backup inventory summary
+- CI now includes a release readiness gate
 
 ## [1.2.0] - 2026-02-15
 

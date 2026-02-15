@@ -6,6 +6,7 @@ Use this checklist before and after every production deployment.
 
 - [ ] `npm run quality` passes locally
 - [ ] `npm run security:full` passes locally
+- [ ] `npm run release:check` passes locally
 - [ ] `nichebot doctor --json` reports `valid=true`
 - [ ] `TELEGRAM_ALLOWED_USER_ID` is correct and verified
 - [ ] Only one LLM provider is active with a valid API key

@@ -8,10 +8,13 @@ const { startScheduler, stopAll } = require('./scheduler/cron');
 const { startObservabilityServer } = require('./observability/server');
 const { acquireProcessLock, releaseProcessLock } = require('./runtime/lock');
 const metrics = require('./observability/metrics');
+const packageJson = require('../package.json');
+
+const runtimeVersion = packageJson.version || 'dev';
 
 console.log(`
 ╔══════════════════════════════════════╗
-║         🤖 NicheBot v1.2.0          ║
+║         🤖 NicheBot v${runtimeVersion.padEnd(13, ' ').slice(0, 13)}║
 ║  AI Social Media Content Assistant  ║
 ╚══════════════════════════════════════╝
 `);

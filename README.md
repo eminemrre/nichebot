@@ -147,11 +147,13 @@ npm run quality:full
 npm run security:scan
 npm run security:audit
 npm run security:full
+npm run release:check
 ```
 
 - CI runs on Node 18 and Node 20.
 - E2E suite uses Telegram/Twitter mocks and exercises real command flows.
 - Security workflow runs secret scan, dependency audit (allowlist-aware), and CodeQL.
+- Release readiness gate validates npm pack manifest, bin executable, and changelog structure.
 - PR template, issue templates, and workflow checks are included.
 - Production runbook: [`docs/PRODUCTION.md`](docs/PRODUCTION.md)
 - Production checklist: [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md)

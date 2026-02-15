@@ -40,6 +40,7 @@ nichebot doctor
 - [ ] Single-instance lock is healthy (`~/.nichebot/nichebot.lock`)
 - [ ] Runtime home backed up regularly
 - [ ] `npm run security:full` passes
+- [ ] `npm run release:check` passes
 
 ## 5) Start strategy
 
