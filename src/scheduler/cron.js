@@ -5,6 +5,7 @@ const db = require('../db/database');
 const { config, isTwitterConfigured } = require('../config');
 const { t } = require('../utils/i18n');
 const logger = require('../utils/logger');
+const metrics = require('../observability/metrics');
 
 const activeJobs = new Map();
 
@@ -19,6 +20,18 @@ function startScheduler(notifyFn) {
         scheduleJob(schedule, notifyFn);
     });
 
+    metrics.setGauge(
+        'nichebot_scheduler_active_jobs',
+        'Number of currently active scheduler jobs',
+        {},
+        activeJobs.size
+    );
+    metrics.setGauge(
+        'nichebot_scheduler_configured_jobs',
+        'Number of configured scheduler rows',
+        {},
+        schedules.length
+    );
     logger.info(`${schedules.length} zamanlanmış görev başlatıldı`);
 }
 
@@ -31,15 +44,26 @@ function scheduleJob(schedule, notifyFn) {
     }
 
     if (!cron.validate(schedule.cron_expression)) {
+        metrics.incCounter(
+            'nichebot_scheduler_invalid_cron_total',
+            'Invalid scheduler cron expressions',
+            {}
+        );
         logger.error(`Geçersiz cron ifadesi: ${schedule.cron_expression}`);
         return;
     }
 
     const job = cron.schedule(schedule.cron_expression, async () => {
         try {
+            metrics.incCounter('nichebot_scheduler_runs_total', 'Total scheduler executions', {
+                niche: String(schedule.niche_name || 'unknown'),
+            });
             // Günlük limit kontrolü
             const todayCount = db.getTodayPostCount();
             if (todayCount >= config.maxDailyPosts) {
+                metrics.incCounter('nichebot_scheduler_skipped_total', 'Total skipped scheduler runs', {
+                    reason: 'daily_limit',
+                });
                 logger.info(t('scheduler.daily_limit', { max: config.maxDailyPosts }));
                 return;
             }
@@ -68,6 +92,7 @@ function scheduleJob(schedule, notifyFn) {
                         db.markPostAsPublished(draft.id, tweetResult.tweetId);
                     }
 
+                    metrics.incCounter('nichebot_scheduler_publish_success_total', 'Successful scheduler publishes', {});
                     if (notifyFn) {
                         await notifyFn(t('scheduler.auto_posted', {
                             niche: schedule.niche_name,
@@ -76,6 +101,7 @@ function scheduleJob(schedule, notifyFn) {
                         }));
                     }
                 } else {
+                    metrics.incCounter('nichebot_scheduler_publish_failures_total', 'Failed scheduler publishes', {});
                     if (notifyFn) {
                         await notifyFn(t('scheduler.auto_failed', { error: tweetResult.error }));
                     }
@@ -91,6 +117,7 @@ function scheduleJob(schedule, notifyFn) {
 
             db.updateScheduleLastRun(schedule.id);
         } catch (error) {
+            metrics.incCounter('nichebot_scheduler_failures_total', 'Scheduler execution failures', {});
             logger.error('Zamanlanmış görev hatası', { error: error.message });
             if (notifyFn) {
                 await notifyFn(t('scheduler.auto_failed', { error: error.message }));
@@ -99,6 +126,12 @@ function scheduleJob(schedule, notifyFn) {
     });
 
     activeJobs.set(schedule.id, job);
+    metrics.setGauge(
+        'nichebot_scheduler_active_jobs',
+        'Number of currently active scheduler jobs',
+        {},
+        activeJobs.size
+    );
     logger.info(`Görev #${schedule.id}: ${schedule.niche_name} → ${schedule.cron_expression}`);
 }
 
@@ -107,6 +140,7 @@ function scheduleJob(schedule, notifyFn) {
  */
 function addAndStartSchedule(nicheId, cronExpression, notifyFn) {
     const result = db.addSchedule(nicheId, cronExpression);
+    metrics.incCounter('nichebot_scheduler_created_total', 'Scheduler jobs created', {});
     const schedules = db.getActiveSchedules();
     const newSchedule = schedules.find((s) => s.id === result.lastInsertRowid);
 
@@ -123,6 +157,12 @@ function addAndStartSchedule(nicheId, cronExpression, notifyFn) {
 function stopAll() {
     activeJobs.forEach((job) => job.stop());
     activeJobs.clear();
+    metrics.setGauge(
+        'nichebot_scheduler_active_jobs',
+        'Number of currently active scheduler jobs',
+        {},
+        0
+    );
     logger.info('Tüm zamanlanmış görevler durduruldu');
 }
 

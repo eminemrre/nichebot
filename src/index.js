@@ -5,6 +5,8 @@ const { initDatabase, closeDatabase, getSetting } = require('./db/database');
 const { initBot, stopBot, getSchedulerNotifyFn } = require('./telegram/bot');
 const { initTwitterClient } = require('./twitter/client');
 const { startScheduler, stopAll } = require('./scheduler/cron');
+const { startObservabilityServer } = require('./observability/server');
+const metrics = require('./observability/metrics');
 
 console.log(`
 ╔══════════════════════════════════════╗
@@ -59,13 +61,33 @@ initBot();
 const notifyFn = getSchedulerNotifyFn();
 startScheduler(notifyFn || ((text) => logger.info(`Scheduler: ${text}`)));
 
+// 8. Observability server
+const observability = startObservabilityServer();
+
 logger.info('NicheBot is running! Send a message to your Telegram bot.');
+metrics.setGauge(
+    'nichebot_service_ready',
+    'Service readiness state (1=ready)',
+    {},
+    1
+);
 
 // Graceful shutdown
 function shutdown(signal) {
     logger.info(`Shutting down (${signal})...`);
+    metrics.setGauge(
+        'nichebot_service_ready',
+        'Service readiness state (1=ready)',
+        {},
+        0
+    );
 
     try {
+        if (observability) {
+            observability.close().catch((err) => {
+                logger.error('Observability shutdown error', { error: err.message });
+            });
+        }
         stopAll();       // Cron job'ları durdur
         stopBot();       // Telegram polling durdur
         closeDatabase(); // DB bağlantısını kapat

@@ -141,6 +141,24 @@ npm run quality:full
 - Production checklist: [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md)
 - Release notes draft: [`docs/RELEASE_v1.2.0.md`](docs/RELEASE_v1.2.0.md)
 
+## Observability
+
+If observability is enabled (`OBSERVABILITY_ENABLED=true`), NicheBot exposes:
+
+- `GET /health` -> JSON service/runtime health
+- `GET /ready` -> readiness response
+- `GET /metrics` -> Prometheus-format metrics
+
+Default binding:
+
+- `OBSERVABILITY_HOST=127.0.0.1`
+- `OBSERVABILITY_PORT=9464`
+
+If exposed beyond localhost, set `OBSERVABILITY_TOKEN` and send it via:
+
+- `x-observability-token: <token>`, or
+- `Authorization: Bearer <token>`
+
 ## Deployment Status
 
 | Target | Status | Notes |

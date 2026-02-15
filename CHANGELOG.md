@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - 📘 Production runbook: `docs/PRODUCTION.md`
 - ✅ Production checklist: `docs/PRODUCTION_CHECKLIST.md`
 - 🚀 v1.2.0 release note draft + tag plan: `docs/RELEASE_v1.2.0.md`
+- 📡 Observability server with `/health`, `/ready`, `/metrics` + in-app metrics counters
 
 ### Changed
 - README expanded with CI badge, quality gates, and production docs links

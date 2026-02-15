@@ -2,6 +2,7 @@ const OpenAI = require('openai');
 const { config } = require('../config');
 const { retry } = require('../utils/helpers');
 const logger = require('../utils/logger');
+const metrics = require('../observability/metrics');
 
 let client = null;
 
@@ -54,22 +55,48 @@ function getModel() {
 async function chat(systemPrompt, userMessage) {
     const provider = config.llm.provider;
     const model = getModel();
-
-    return retry(
-        async () => {
-            if (provider === 'anthropic') {
-                return await callAnthropic(systemPrompt, userMessage, model);
-            }
-            return await callOpenAICompatible(systemPrompt, userMessage, model);
-        },
-        {
-            maxRetries: 3,
-            baseDelay: 1000,
-            onRetry: (err, attempt, delay) => {
-                logger.warn(`LLM retry ${attempt}/3 (${delay}ms): ${err.message}`);
-            },
-        }
+    metrics.incCounter(
+        'nichebot_llm_requests_total',
+        'Total LLM requests',
+        { provider, model }
     );
+
+    try {
+        const result = await retry(
+            async () => {
+                if (provider === 'anthropic') {
+                    return await callAnthropic(systemPrompt, userMessage, model);
+                }
+                return await callOpenAICompatible(systemPrompt, userMessage, model);
+            },
+            {
+                maxRetries: 3,
+                baseDelay: 1000,
+                onRetry: (err, attempt, delay) => {
+                    metrics.incCounter(
+                        'nichebot_llm_retries_total',
+                        'Total LLM retries',
+                        { provider, model }
+                    );
+                    logger.warn(`LLM retry ${attempt}/3 (${delay}ms): ${err.message}`);
+                },
+            }
+        );
+
+        metrics.incCounter(
+            'nichebot_llm_success_total',
+            'Total successful LLM requests',
+            { provider, model }
+        );
+        return result;
+    } catch (error) {
+        metrics.incCounter(
+            'nichebot_llm_failures_total',
+            'Total failed LLM requests',
+            { provider, model }
+        );
+        throw error;
+    }
 }
 
 /**

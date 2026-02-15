@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { logsDir, ensureRuntimeDirs } = require('../runtime/paths');
+const metrics = require('../observability/metrics');
 
 const LOG_DIR = logsDir;
 const LOG_FILE = path.join(LOG_DIR, 'nichebot.log');
@@ -47,6 +48,10 @@ function writeLog(level, msg, meta) {
     if (LEVELS[level] > currentLevel) return;
 
     const formatted = formatMessage(level, msg, meta);
+    metrics.incCounter('nichebot_logs_total', 'Total logs emitted by level', { level });
+    if (level === 'error') {
+        metrics.observeError(meta?.scope || 'logger');
+    }
 
     // Console
     if (level === 'error') {

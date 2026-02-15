@@ -63,3 +63,10 @@ Rotation flow:
 - [ ] Validation fail -> run `nichebot setup` or fix field in runtime `.env`
 - [ ] Unexpected publish failures -> verify Twitter full-key set
 - [ ] Persistent runtime errors -> inspect `~/.nichebot/data/logs/error.log`
+
+## F) Observability checks
+
+- [ ] `curl http://127.0.0.1:9464/health` returns `status: ok`
+- [ ] `curl http://127.0.0.1:9464/ready` returns `ready: true`
+- [ ] `curl http://127.0.0.1:9464/metrics` returns Prometheus text
+- [ ] If exposed externally, `OBSERVABILITY_TOKEN` is set and unauthorized requests return 401

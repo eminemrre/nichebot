@@ -8,6 +8,7 @@ const db = require('../db/database');
 const { t } = require('../utils/i18n');
 const { RateLimiter, escapeMarkdown, stripMarkdownFormatting, sanitizeInput } = require('../utils/helpers');
 const logger = require('../utils/logger');
+const metrics = require('../observability/metrics');
 
 let bot;
 let pendingPost = null;
@@ -30,7 +31,25 @@ function sendMessageSafe(chatId, text, options = {}) {
     delete sendOptions.parseMode;
     if (parseMode) sendOptions.parse_mode = parseMode;
 
-    return bot.sendMessage(chatId, text, sendOptions).catch(async (error) => {
+    metrics.incCounter(
+        'nichebot_telegram_send_attempts_total',
+        'Total outbound Telegram send attempts',
+        { parseMode: parseMode || 'none' }
+    );
+
+    return bot.sendMessage(chatId, text, sendOptions).then((response) => {
+        metrics.incCounter(
+            'nichebot_telegram_send_success_total',
+            'Total successful outbound Telegram sends',
+            { parseMode: parseMode || 'none' }
+        );
+        return response;
+    }).catch(async (error) => {
+        metrics.incCounter(
+            'nichebot_telegram_send_failures_total',
+            'Total failed outbound Telegram sends',
+            { stage: 'primary', parseMode: parseMode || 'none' }
+        );
         if (parseMode === 'Markdown' && isMarkdownParseError(error)) {
             logger.warn('Telegram Markdown parse failed, retrying as plain text.', {
                 chatId,
@@ -41,8 +60,19 @@ function sendMessageSafe(chatId, text, options = {}) {
             delete plainOptions.parse_mode;
 
             try {
-                return await bot.sendMessage(chatId, fallback, plainOptions);
+                const fallbackResponse = await bot.sendMessage(chatId, fallback, plainOptions);
+                metrics.incCounter(
+                    'nichebot_telegram_send_success_total',
+                    'Total successful outbound Telegram sends',
+                    { parseMode: 'fallback_plain' }
+                );
+                return fallbackResponse;
             } catch (fallbackError) {
+                metrics.incCounter(
+                    'nichebot_telegram_send_failures_total',
+                    'Total failed outbound Telegram sends',
+                    { stage: 'fallback_plain', parseMode: 'none' }
+                );
                 logger.error('Telegram plain-text fallback failed.', {
                     chatId,
                     error: fallbackError.message,
@@ -82,9 +112,19 @@ function stopBot() {
  */
 function checkAccess(msg, command = 'general') {
     const chatId = msg.chat.id;
+    metrics.incCounter(
+        'nichebot_commands_received_total',
+        'Total received bot commands',
+        { command }
+    );
 
     // Yetki kontrolü
     if (config.telegram.allowedUserId && msg.from.id !== config.telegram.allowedUserId) {
+        metrics.incCounter(
+            'nichebot_commands_denied_total',
+            'Total denied bot commands',
+            { command, reason: 'unauthorized' }
+        );
         sendMessageSafe(chatId, t('bot.unauthorized'));
         return false;
     }
@@ -93,9 +133,20 @@ function checkAccess(msg, command = 'general') {
     const key = `${msg.from.id}:${command}`;
     if (!rateLimiter.canProceed(key)) {
         const remaining = Math.ceil(rateLimiter.getRemainingMs(key) / 1000);
+        metrics.incCounter(
+            'nichebot_commands_denied_total',
+            'Total denied bot commands',
+            { command, reason: 'rate_limited' }
+        );
         sendMessageSafe(chatId, t('bot.rate_limited', { seconds: remaining }));
         return false;
     }
+
+    metrics.incCounter(
+        'nichebot_commands_allowed_total',
+        'Total accepted bot commands',
+        { command }
+    );
 
     // chatId'yi kaydet (scheduler bildirimleri için)
     db.setSetting('telegram_chat_id', String(chatId));

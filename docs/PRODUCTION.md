@@ -91,3 +91,18 @@ Back up:
 ## 8) Production checklist
 
 - Full operational checklist: [`docs/PRODUCTION_CHECKLIST.md`](PRODUCTION_CHECKLIST.md)
+
+## 9) Observability endpoints
+
+When enabled:
+
+- `GET http://<host>:<port>/health`
+- `GET http://<host>:<port>/ready`
+- `GET http://<host>:<port>/metrics`
+
+Defaults:
+
+- Host: `127.0.0.1`
+- Port: `9464`
+
+If endpoint is externally reachable, set `OBSERVABILITY_TOKEN` and require token auth.

@@ -2,6 +2,7 @@ const { TwitterApi } = require('twitter-api-v2');
 const { config, isTwitterConfigured } = require('../config');
 const { retry } = require('../utils/helpers');
 const logger = require('../utils/logger');
+const metrics = require('../observability/metrics');
 
 let client = null;
 
@@ -10,6 +11,12 @@ let client = null;
  */
 function initTwitterClient() {
     if (!isTwitterConfigured()) {
+        metrics.setGauge(
+            'nichebot_twitter_configured',
+            'Whether Twitter integration is configured',
+            {},
+            0
+        );
         logger.warn('Twitter API yapılandırılmamış. Sadece içerik üretim modu aktif.');
         return null;
     }
@@ -22,9 +29,21 @@ function initTwitterClient() {
             accessSecret: config.twitter.accessSecret,
         });
 
+        metrics.setGauge(
+            'nichebot_twitter_configured',
+            'Whether Twitter integration is configured',
+            {},
+            1
+        );
         logger.info('Twitter API bağlantısı hazır');
         return client;
     } catch (error) {
+        metrics.setGauge(
+            'nichebot_twitter_configured',
+            'Whether Twitter integration is configured',
+            {},
+            0
+        );
         logger.error('Twitter API bağlantı hatası', { error: error.message });
         return null;
     }
@@ -34,7 +53,12 @@ function initTwitterClient() {
  * Tweet paylaş (retry ile)
  */
 async function postTweet(content) {
+    metrics.incCounter('nichebot_twitter_publish_attempts_total', 'Total tweet publish attempts', { type: 'tweet' });
     if (!client) {
+        metrics.incCounter('nichebot_twitter_publish_failures_total', 'Total tweet publish failures', {
+            type: 'tweet',
+            reason: 'not_configured',
+        });
         return { success: false, error: 'Twitter API bağlı değil.' };
     }
 
@@ -48,8 +72,15 @@ async function postTweet(content) {
             }
         );
         logger.info('Tweet paylaşıldı', { tweetId: tweet.data.id });
+        metrics.incCounter('nichebot_twitter_publish_success_total', 'Total successful Twitter publishes', {
+            type: 'tweet',
+        });
         return { success: true, tweetId: tweet.data.id };
     } catch (error) {
+        metrics.incCounter('nichebot_twitter_publish_failures_total', 'Total tweet publish failures', {
+            type: 'tweet',
+            reason: 'api_error',
+        });
         logger.error('Tweet paylaşma hatası', { error: error.message });
         return { success: false, error: error.message };
     }
@@ -59,7 +90,12 @@ async function postTweet(content) {
  * Thread paylaş (retry ile)
  */
 async function postThread(tweets) {
+    metrics.incCounter('nichebot_twitter_publish_attempts_total', 'Total tweet publish attempts', { type: 'thread' });
     if (!client) {
+        metrics.incCounter('nichebot_twitter_publish_failures_total', 'Total tweet publish failures', {
+            type: 'thread',
+            reason: 'not_configured',
+        });
         return { success: false, error: 'Twitter API bağlı değil.' };
     }
 
@@ -85,8 +121,15 @@ async function postThread(tweets) {
         }
 
         logger.info('Thread paylaşıldı', { count: tweetIds.length });
+        metrics.incCounter('nichebot_twitter_publish_success_total', 'Total successful Twitter publishes', {
+            type: 'thread',
+        });
         return { success: true, tweetIds };
     } catch (error) {
+        metrics.incCounter('nichebot_twitter_publish_failures_total', 'Total tweet publish failures', {
+            type: 'thread',
+            reason: 'api_error',
+        });
         logger.error('Thread paylaşma hatası', { error: error.message });
         return { success: false, error: error.message };
     }

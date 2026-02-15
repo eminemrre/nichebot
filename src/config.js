@@ -38,9 +38,19 @@ function parseAllowedUserId(rawValue) {
     return { raw: value, parsed, isValid: true, reason: null };
 }
 
+function parseBoolean(rawValue, defaultValue = false) {
+    if (rawValue === undefined || rawValue === null || rawValue === '') return Boolean(defaultValue);
+    const value = String(rawValue).trim().toLowerCase();
+    if (['1', 'true', 'yes', 'y', 'on'].includes(value)) return true;
+    if (['0', 'false', 'no', 'n', 'off'].includes(value)) return false;
+    return Boolean(defaultValue);
+}
+
 function buildConfigFromEnv() {
     const parsedAllowedUser = parseAllowedUserId(process.env.TELEGRAM_ALLOWED_USER_ID);
     const maxDailyPostsRaw = Number.parseInt(process.env.MAX_DAILY_POSTS, 10);
+
+    const observabilityPortRaw = Number.parseInt(process.env.OBSERVABILITY_PORT, 10);
 
     return {
         // Telegram
@@ -81,6 +91,12 @@ function buildConfigFromEnv() {
         logLevel: String(process.env.LOG_LEVEL || 'info').trim().toLowerCase(),
         timezone: String(process.env.TZ || 'UTC').trim(),
         nodeEnv: String(process.env.NODE_ENV || 'development').trim().toLowerCase(),
+        observability: {
+            enabled: parseBoolean(process.env.OBSERVABILITY_ENABLED, true),
+            host: String(process.env.OBSERVABILITY_HOST || '127.0.0.1').trim(),
+            port: Number.isFinite(observabilityPortRaw) ? observabilityPortRaw : 9464,
+            token: String(process.env.OBSERVABILITY_TOKEN || '').trim(),
+        },
 
         // Internal metadata
         _meta: {
@@ -192,6 +208,25 @@ function validateConfig() {
             field: 'TWITTER_*',
             message: 'Twitter API is not configured. Generation works, publish commands remain disabled.',
             fix: 'Optional: add Twitter keys to enable /onayla publish actions.',
+        });
+    }
+
+    const obs = currentConfig.observability || {};
+    if (!Number.isInteger(obs.port) || obs.port < 1 || obs.port > 65535) {
+        addIssue(errors, {
+            code: 'INVALID_OBSERVABILITY_PORT',
+            field: 'OBSERVABILITY_PORT',
+            message: `OBSERVABILITY_PORT must be between 1 and 65535, got "${obs.port}".`,
+            fix: 'Set OBSERVABILITY_PORT to a valid TCP port (example: 9464).',
+        });
+    }
+
+    if (obs.enabled && obs.host === '0.0.0.0' && !obs.token) {
+        addIssue(warnings, {
+            code: 'OBSERVABILITY_EXPOSED_NO_TOKEN',
+            field: 'OBSERVABILITY_TOKEN',
+            message: 'Observability is exposed on 0.0.0.0 without OBSERVABILITY_TOKEN.',
+            fix: 'Set OBSERVABILITY_TOKEN or bind OBSERVABILITY_HOST to 127.0.0.1.',
         });
     }
 
