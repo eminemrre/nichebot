@@ -9,6 +9,7 @@
  *   nichebot stop
  *   nichebot backup [list|verify|prune]
  *   nichebot restore <id|--latest>
+ *   nichebot db [doctor|optimize]
  *   nichebot (defaults to start)
  */
 
@@ -37,6 +38,7 @@ const {
     restoreRuntimeBackup,
     pruneBackups,
 } = require('./runtime/backup');
+const { inspectDatabase, optimizeDatabase } = require('./db/maintenance');
 const {
     config,
     loadEnv,
@@ -155,6 +157,8 @@ function printHelp() {
     console.log('  backup verify   Verify backup integrity');
     console.log('  backup prune    Prune old backups by retention');
     console.log('  restore <id>    Restore runtime backup');
+    console.log('  db doctor       Check SQLite integrity and DB stats');
+    console.log('  db optimize     Run checkpoint + vacuum + optimize');
     console.log('  help            Show this help');
     console.log('');
     console.log('Runtime paths:');
@@ -416,6 +420,7 @@ function buildDoctorReport() {
     const validation = validateConfig();
     const legacy = findLegacyPaths();
     const backups = listBackups();
+    const dbInspection = inspectDatabase();
     const latestBackup = backups[0] || null;
     const latestBackupVerification = latestBackup
         ? (() => {
@@ -435,6 +440,8 @@ function buildDoctorReport() {
             dataDir,
             dbPath,
             dbExists: fs.existsSync(dbPath),
+            dbIntegrity: dbInspection.exists ? dbInspection.integrity : 'missing',
+            dbHealthy: dbInspection.exists ? dbInspection.healthy : false,
             logsDir,
             lock: getLockStatus(),
             backups: {
@@ -472,6 +479,7 @@ function printDoctorReport(report) {
     console.log(`Runtime home: ${report.runtime.home}`);
     console.log(`Config file : ${report.runtime.envPath} (${report.runtime.envExists ? 'found' : 'missing'})`);
     console.log(`Database    : ${report.runtime.dbPath} (${report.runtime.dbExists ? 'found' : 'missing'})`);
+    console.log(`DB integrity: ${report.runtime.dbIntegrity} (${report.runtime.dbHealthy ? 'healthy' : 'unhealthy'})`);
     console.log(`Logs dir    : ${report.runtime.logsDir}`);
     console.log(
         `Lock file   : ${report.runtime.lock.path} (${report.runtime.lock.active
@@ -741,6 +749,69 @@ async function main() {
                 console.log(`Safety backup created: ${restored.preRestoreBackup.id}`);
             }
         }
+        return;
+    }
+
+    if (command === 'db') {
+        const asJson = args.includes('--json');
+        const subcommand = args[0] && !args[0].startsWith('--')
+            ? String(args[0]).toLowerCase()
+            : 'doctor';
+
+        if (subcommand === 'doctor') {
+            const report = inspectDatabase();
+            if (asJson) {
+                console.log(JSON.stringify(report, null, 2));
+            } else {
+                if (!report.exists) {
+                    console.log(`Database not found: ${report.path}`);
+                } else {
+                    console.log(`DB path      : ${report.path}`);
+                    console.log(`Integrity    : ${report.integrity}`);
+                    console.log(`Healthy      : ${report.healthy ? 'yes' : 'no'}`);
+                    console.log(`Journal mode : ${report.journalMode}`);
+                    console.log(`File bytes   : ${report.fileBytes}`);
+                    console.log(`Used bytes   : ${report.estimatedUsedBytes}`);
+                    console.log(`Page count   : ${report.pageCount}`);
+                    console.log(`Free pages   : ${report.freePages}`);
+                    console.log(`Tables       : niches=${report.tables.niches ?? '-'}, posts=${report.tables.posts ?? '-'}, schedules=${report.tables.schedules ?? '-'}, settings=${report.tables.settings ?? '-'}`);
+                }
+            }
+            process.exitCode = report.healthy ? 0 : 1;
+            return;
+        }
+
+        if (subcommand === 'optimize') {
+            const lock = getLockStatus();
+            if (lock.active) {
+                console.error(
+                    `Cannot optimize while bot is running (pid=${lock.pid}). Stop it first: nichebot stop`
+                );
+                process.exitCode = 1;
+                return;
+            }
+
+            try {
+                const result = optimizeDatabase();
+                if (asJson) {
+                    console.log(JSON.stringify(result, null, 2));
+                } else {
+                    console.log(`Optimized DB : ${result.path}`);
+                    console.log(`Bytes reduced: ${result.bytesReduced}`);
+                    console.log(`Free pages   : ${result.before.freePages} -> ${result.after.freePages}`);
+                    console.log(`Integrity    : ${result.after.integrity}`);
+                }
+            } catch (error) {
+                console.error(`DB optimize failed: ${error.message}`);
+                process.exitCode = 1;
+                return;
+            }
+            return;
+        }
+
+        console.error(`Unknown db command: ${subcommand}`);
+        console.error('Usage: nichebot db doctor|optimize [--json]');
+        process.exitCode = 1;
         return;
     }
 

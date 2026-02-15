@@ -129,6 +129,8 @@ nichebot backup verify --latest
 nichebot backup prune --keep 10
 nichebot restore <id>   # restore backup snapshot
 nichebot restore --latest
+nichebot db doctor      # sqlite integrity and runtime DB stats
+nichebot db optimize    # checkpoint + vacuum + optimize
 ```
 
 ### Docker run

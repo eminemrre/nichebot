@@ -100,6 +100,8 @@ nichebot restore <backup-id>
 ## 7) Troubleshooting
 
 - `nichebot doctor --json` for machine-readable diagnostics
+- `nichebot db doctor --json` for SQLite integrity and storage stats
+- `nichebot db optimize` for checkpoint + vacuum maintenance (only when bot is stopped)
 - 401 Telegram error usually means wrong `TELEGRAM_BOT_TOKEN`
 - Validation failures provide exact field + fix hint
 

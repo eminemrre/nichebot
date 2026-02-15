@@ -15,6 +15,7 @@ Use this checklist before and after every production deployment.
 - [ ] `QUALITY_MIN_AUTO_PUBLISH_SCORE` is between `0-100` (recommended `65+`)
 - [ ] `.env` permissions are restricted (`chmod 600 ~/.nichebot/.env`)
 - [ ] Runtime lock file is present during run (`~/.nichebot/nichebot.lock`)
+- [ ] `nichebot db doctor --json` returns healthy DB state
 
 ## B) Service setup (systemd)
 
@@ -50,6 +51,7 @@ Recommended schedule:
 - [ ] `nichebot backup` runs successfully
 - [ ] `nichebot backup verify --latest` passes
 - [ ] `nichebot restore <id>` drill completed in staging
+- [ ] Quarterly `nichebot db optimize` maintenance completed
 
 ## D) Secret rotation policy
 

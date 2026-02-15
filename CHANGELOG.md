@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - 🚀 Release readiness checker (`npm run release:check`)
 - ✅ Backup integrity verification with SHA-256 checksums
 - 🧹 Backup retention command: `nichebot backup prune --keep <N>`
+- 🩺 Database maintenance commands: `nichebot db doctor` and `nichebot db optimize`
 
 ### Changed
 - Scheduler now skips auto-publish when quality score is below threshold (`QUALITY_MIN_AUTO_PUBLISH_SCORE`)
@@ -30,6 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Doctor report now includes backup inventory summary
 - CI now includes a release readiness gate
 - Doctor report now includes latest backup integrity state
+- Doctor report now includes DB integrity health summary
 
 ## [1.2.0] - 2026-02-15
 
