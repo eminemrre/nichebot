@@ -6,7 +6,7 @@ Thank you for your interest in contributing! 🎉
 
 ### Reporting Bugs
 
-1. Check [existing issues](https://github.com/eminemre35/nichebot/issues) first
+1. Check [existing issues](https://github.com/eminemrre/nichebot/issues) first
 2. Create a new issue with:
    - Clear title and description
    - Steps to reproduce

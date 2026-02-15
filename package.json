@@ -2,6 +2,14 @@
   "name": "nichebot",
   "version": "1.2.0",
   "description": "Open-source AI-powered social media content bot. Generate niche content for Twitter/X via Telegram. Bring your own API keys.",
+  "homepage": "https://github.com/eminemrre/nichebot",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/eminemrre/nichebot.git"
+  },
+  "bugs": {
+    "url": "https://github.com/eminemrre/nichebot/issues"
+  },
   "main": "src/index.js",
   "files": [
     "src/",

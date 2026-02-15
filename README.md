@@ -8,7 +8,7 @@ Generate niche content, review it, and optionally publish to Twitter/X from one 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Node.js](https://img.shields.io/badge/Node.js-18%2B-green.svg)](https://nodejs.org)
-[![CI](https://github.com/eminemre35/nichebot/actions/workflows/ci.yml/badge.svg)](https://github.com/eminemre35/nichebot/actions/workflows/ci.yml)
+[![CI](https://github.com/eminemrre/nichebot/actions/workflows/ci.yml/badge.svg)](https://github.com/eminemrre/nichebot/actions/workflows/ci.yml)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](Dockerfile)
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
@@ -84,7 +84,7 @@ It supports:
 ### Local terminal-first run (recommended)
 
 ```bash
-git clone https://github.com/eminemre35/nichebot.git
+git clone https://github.com/eminemrre/nichebot.git
 cd nichebot
 npm install
 npm link
