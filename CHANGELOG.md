@@ -14,11 +14,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - 📊 Quality-related Telegram preview details and scheduler guardrails
 - 🔐 Security scripts: repository secret scan + npm audit gate (`security:scan`, `security:audit`)
 - 🤖 GitHub security workflow (`security.yml`) and weekly Dependabot updates
+- 🔒 Runtime single-instance lock (`~/.nichebot/nichebot.lock`) with stale-lock recovery
+- 🛑 New CLI command: `nichebot stop`
 
 ### Changed
 - Scheduler now skips auto-publish when quality score is below threshold (`QUALITY_MIN_AUTO_PUBLISH_SCORE`)
 - Setup/doctor/config flow includes prompt template and quality threshold settings
 - Production config validation now enforces Telegram token format and stricter production checks for observability/file permissions
+- Doctor report now includes runtime lock status
 
 ## [1.2.0] - 2026-02-15
 

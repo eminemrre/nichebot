@@ -107,6 +107,7 @@ export PATH="$(npm prefix -g)/bin:$PATH"
 - Config: `~/.nichebot/.env`
 - SQLite DB: `~/.nichebot/data/nichebot.db`
 - Logs: `~/.nichebot/data/logs/`
+- Process lock: `~/.nichebot/nichebot.lock`
 - Override runtime home: `NICHEBOT_HOME=/custom/path`
 - Prompt template version: `PROMPT_TEMPLATE_VERSION` (default `v1`)
 - Scheduler quality threshold: `QUALITY_MIN_AUTO_PUBLISH_SCORE` (default `65`)
@@ -119,6 +120,7 @@ nichebot setup          # interactive setup wizard
 nichebot doctor         # validation report
 nichebot doctor --json  # machine-readable report
 nichebot start          # validate + start bot
+nichebot stop           # stop running process using runtime lock
 ```
 
 ### Docker run

@@ -6,6 +6,7 @@ const { initBot, stopBot, getSchedulerNotifyFn } = require('./telegram/bot');
 const { initTwitterClient } = require('./twitter/client');
 const { startScheduler, stopAll } = require('./scheduler/cron');
 const { startObservabilityServer } = require('./observability/server');
+const { acquireProcessLock, releaseProcessLock } = require('./runtime/lock');
 const metrics = require('./observability/metrics');
 
 console.log(`
@@ -42,6 +43,22 @@ if (!validation.valid) {
     logger.error(formatValidationReport(validation));
     logger.error('Run "nichebot setup" to generate/update your runtime config.');
     process.exit(1);
+}
+
+const lockAttempt = acquireProcessLock();
+if (!lockAttempt.acquired) {
+    logger.error('Another NicheBot instance is already running.', {
+        lockPath: lockAttempt.lockPath,
+        pid: lockAttempt.existing?.pid || null,
+        startedAt: lockAttempt.existing?.startedAt || null,
+    });
+    process.exit(1);
+}
+
+if (lockAttempt.staleLockRecovered) {
+    logger.warn('Recovered stale runtime lock file.', {
+        lockPath: lockAttempt.lockPath,
+    });
 }
 
 // 3. Veritabanını başlat
@@ -91,6 +108,7 @@ function shutdown(signal) {
         stopAll();       // Cron job'ları durdur
         stopBot();       // Telegram polling durdur
         closeDatabase(); // DB bağlantısını kapat
+        releaseProcessLock();
     } catch (err) {
         logger.error('Shutdown error', { error: err.message });
     }

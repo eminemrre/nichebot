@@ -10,6 +10,7 @@ const envPath = path.join(runtimeHome, '.env');
 const dataDir = path.join(runtimeHome, 'data');
 const dbPath = path.join(dataDir, 'nichebot.db');
 const logsDir = path.join(dataDir, 'logs');
+const lockPath = path.join(runtimeHome, 'nichebot.lock');
 
 function ensureRuntimeDirs() {
     [runtimeHome, dataDir, logsDir].forEach((dir) => {
@@ -41,6 +42,7 @@ module.exports = {
     dataDir,
     dbPath,
     logsDir,
+    lockPath,
     ensureRuntimeDirs,
     findLegacyPaths,
 };

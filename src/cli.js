@@ -24,6 +24,7 @@ const {
     ensureRuntimeDirs,
     findLegacyPaths,
 } = require('./runtime/paths');
+const { getLockStatus, isPidRunning } = require('./runtime/lock');
 const {
     config,
     loadEnv,
@@ -136,12 +137,14 @@ function printHelp() {
     console.log('  setup           Interactive setup wizard');
     console.log('  doctor [--json] Check runtime/config status without starting the bot');
     console.log('  start           Validate config and start bot runtime');
+    console.log('  stop            Stop running bot process (if lock is active)');
     console.log('  help            Show this help');
     console.log('');
     console.log('Runtime paths:');
     console.log(`  home: ${runtimeHome}`);
     console.log(`  env:  ${envPath}`);
     console.log(`  db:   ${dbPath}`);
+    console.log(`  lock: ${getLockStatus().path}`);
     console.log('');
 }
 
@@ -404,6 +407,7 @@ function buildDoctorReport() {
             dbPath,
             dbExists: fs.existsSync(dbPath),
             logsDir,
+            lock: getLockStatus(),
         },
         config: {
             provider: config.llm.provider,
@@ -429,6 +433,13 @@ function printDoctorReport(report) {
     console.log(`Config file : ${report.runtime.envPath} (${report.runtime.envExists ? 'found' : 'missing'})`);
     console.log(`Database    : ${report.runtime.dbPath} (${report.runtime.dbExists ? 'found' : 'missing'})`);
     console.log(`Logs dir    : ${report.runtime.logsDir}`);
+    console.log(
+        `Lock file   : ${report.runtime.lock.path} (${report.runtime.lock.active
+            ? `active pid=${report.runtime.lock.pid}`
+            : report.runtime.lock.exists
+                ? 'stale'
+                : 'missing'})`
+    );
     console.log(`Provider    : ${report.config.provider}`);
     console.log(`Language    : ${report.config.language}`);
     console.log(`Template    : ${report.config.promptTemplateVersion}`);
@@ -509,6 +520,43 @@ async function main() {
 
     if (command === 'start') {
         await runStart({ allowSetupFallback: true });
+        return;
+    }
+
+    if (command === 'stop') {
+        const status = getLockStatus();
+        if (!status.exists) {
+            console.log('No running lock found.');
+            return;
+        }
+        if (!status.active || !status.pid) {
+            console.log('Lock file exists but process is not active (stale lock).');
+            return;
+        }
+        if (status.pid === process.pid) {
+            console.log('Current CLI process owns the lock; nothing to stop.');
+            return;
+        }
+
+        try {
+            process.kill(status.pid, 'SIGTERM');
+        } catch (error) {
+            console.error(`Failed to send SIGTERM to pid ${status.pid}: ${error.message}`);
+            process.exitCode = 1;
+            return;
+        }
+
+        const waitUntil = Date.now() + 10000;
+        while (Date.now() < waitUntil) {
+            if (!isPidRunning(status.pid)) {
+                console.log(`Stopped process ${status.pid}.`);
+                return;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+
+        console.error(`Process ${status.pid} did not stop within timeout.`);
+        process.exitCode = 1;
         return;
     }
 

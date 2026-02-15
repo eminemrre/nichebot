@@ -37,6 +37,7 @@ nichebot doctor
 - [ ] `PROMPT_TEMPLATE_VERSION` uses supported version (`v1`)
 - [ ] `QUALITY_MIN_AUTO_PUBLISH_SCORE` is set (recommended: `65` or higher)
 - [ ] `.env` file permissions restricted (600)
+- [ ] Single-instance lock is healthy (`~/.nichebot/nichebot.lock`)
 - [ ] Runtime home backed up regularly
 - [ ] `npm run security:full` passes
 

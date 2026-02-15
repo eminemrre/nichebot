@@ -13,6 +13,7 @@ Use this checklist before and after every production deployment.
 - [ ] `PROMPT_TEMPLATE_VERSION` is set to a supported value (`v1`)
 - [ ] `QUALITY_MIN_AUTO_PUBLISH_SCORE` is between `0-100` (recommended `65+`)
 - [ ] `.env` permissions are restricted (`chmod 600 ~/.nichebot/.env`)
+- [ ] Runtime lock file is present during run (`~/.nichebot/nichebot.lock`)
 
 ## B) Service setup (systemd)
 
