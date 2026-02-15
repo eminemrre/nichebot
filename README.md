@@ -13,7 +13,7 @@ Generate niche content, review it, and optionally publish to Twitter/X from one 
 ![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey.svg)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-[Overview](#overview) · [Quick Value in 5 Minutes](#quick-value-in-5-minutes) · [Showcase](#showcase-3-minute-demo) · [Key Features](#key-features) · [Architecture](#architecture-and-tech-stack) · [Quick Start](#quick-start) · [Quality](#quality-gates) · [Deployment Status](#deployment-status) · [Commands](#telegram-commands)
+[Overview](#overview) · [Quick Value in 5 Minutes](#quick-value-in-5-minutes) · [Showcase](#showcase-full-setup-demo) · [Key Features](#key-features) · [Architecture](#architecture-and-tech-stack) · [Quick Start](#quick-start) · [Quality](#quality-gates) · [Deployment Status](#deployment-status) · [Commands](#telegram-commands)
 
 </div>
 
@@ -39,9 +39,9 @@ It supports:
 4. Run `nichebot doctor` for preflight checks.
 5. Run `nichebot start`.
 
-## Showcase: 3-Minute Demo
+## Showcase: Full Setup Demo
 
-[![Watch 3-min demo](https://img.shields.io/badge/Watch-3_min_Demo-16a34a?style=for-the-badge&logo=github)](docs/assets/nichebot-demo.mp4)
+[![Watch full setup demo](https://img.shields.io/badge/Watch-Full_Setup_Demo-16a34a?style=for-the-badge&logo=github)](docs/assets/nichebot-demo.mp4)
 
 ![NicheBot 3-minute demo preview](docs/assets/nichebot-demo.gif)
 
@@ -78,8 +78,9 @@ nichebot backup
 nichebot db doctor
 ```
 
+If GIF preview does not render in your viewer, open the video directly: [`docs/assets/nichebot-demo.mp4`](docs/assets/nichebot-demo.mp4)
+
 Full Turkish pitch/demo text: [`docs/DEMO_SALES_TR.md`](docs/DEMO_SALES_TR.md)
-Raw demo video: [`docs/assets/nichebot-demo.mp4`](docs/assets/nichebot-demo.mp4)
 
 ## Key Features
 

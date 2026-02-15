@@ -31,3 +31,4 @@ NicheBot, içerik üreten ekipler için terminal-first çalışan, Telegram üze
 - Demo video: `docs/assets/nichebot-demo.mp4`
 - Terminal görseli: `docs/assets/nichebot-terminal-showcase.svg`
 - Telegram görseli: `docs/assets/nichebot-telegram-showcase.svg`
+- Medyayı yeniden üretme script'i: `scripts/generate-demo-media.sh`
