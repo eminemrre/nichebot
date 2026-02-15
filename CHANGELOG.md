@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+- _No changes yet._
+
+## [1.3.0] - 2026-02-15
+
 ### Added
 - 🧩 Versioned prompt template registry (`tweet-v1`, `thread-v1`)
 - 🧪 Content quality engine with score/grade/checklist outputs

@@ -162,7 +162,7 @@ npm run release:check
 - PR template, issue templates, and workflow checks are included.
 - Production runbook: [`docs/PRODUCTION.md`](docs/PRODUCTION.md)
 - Production checklist: [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md)
-- Release notes draft: [`docs/RELEASE_v1.2.0.md`](docs/RELEASE_v1.2.0.md)
+- Release notes draft: [`docs/RELEASE_v1.3.0.md`](docs/RELEASE_v1.3.0.md)
 
 ## Observability
 

@@ -1,6 +1,6 @@
 {
   "name": "nichebot",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Open-source AI-powered social media content bot. Generate niche content for Twitter/X via Telegram. Bring your own API keys.",
   "homepage": "https://github.com/eminemrre/nichebot",
   "repository": {
@@ -29,6 +29,7 @@
     "dev": "node --watch src/cli.js start",
     "setup": "node src/cli.js setup",
     "doctor": "node src/cli.js doctor",
+    "release:notes": "node scripts/changelog-extract.js",
     "lint": "node scripts/lint.js",
     "security:scan": "node scripts/secret-scan.js",
     "security:audit": "node scripts/security-audit.js",
