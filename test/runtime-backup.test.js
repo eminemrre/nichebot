@@ -53,6 +53,11 @@ test('createRuntimeBackup creates snapshot and appears in list', () => {
         assert.equal(backups.length, 1);
         assert.equal(backups[0].id, created.id);
         assert.equal(backups[0].reason, 'test_case');
+        assert.equal(backups[0].fileCount >= 2, true);
+
+        const verification = ctx.backup.verifyBackup(created.id);
+        assert.equal(verification.valid, true);
+        assert.equal(verification.checkedFiles >= 2, true);
     } finally {
         ctx.cleanup();
     }
@@ -79,6 +84,7 @@ test('restoreRuntimeBackup restores env/db/logs and creates safety backup', () =
         assert.equal(restored.restored.includes('.env'), true);
         assert.equal(restored.restored.includes('data/nichebot.db'), true);
         assert.equal(restored.preRestoreBackup !== null, true);
+        assert.equal(restored.verification.valid, true);
 
         const envContent = fs.readFileSync(ctx.paths.envPath, 'utf8');
         const dbContent = fs.readFileSync(ctx.paths.dbPath, 'utf8');
@@ -86,6 +92,56 @@ test('restoreRuntimeBackup restores env/db/logs and creates safety backup', () =
         assert.equal(envContent, 'TOKEN=old\n');
         assert.equal(dbContent, 'old-db');
         assert.equal(logContent, 'old-log');
+    } finally {
+        ctx.cleanup();
+    }
+});
+
+test('verifyBackup detects tampered backup file', () => {
+    const ctx = setupTempRuntime();
+    try {
+        fs.writeFileSync(ctx.paths.envPath, 'TOKEN=stable\n');
+        try {
+            fs.chmodSync(ctx.paths.envPath, 0o600);
+        } catch { }
+        fs.writeFileSync(ctx.paths.dbPath, 'stable-db');
+
+        const created = ctx.backup.createRuntimeBackup({ reason: 'tamper_test' });
+        const backupDbFile = path.join(created.backupDir, 'data', 'nichebot.db');
+        fs.writeFileSync(backupDbFile, 'tampered-db');
+
+        const verification = ctx.backup.verifyBackup(created.id);
+        assert.equal(verification.valid, false);
+        assert.equal(
+            verification.issues.some((issue) => issue.includes('checksum mismatch') || issue.includes('size mismatch')),
+            true
+        );
+    } finally {
+        ctx.cleanup();
+    }
+});
+
+test('pruneBackups removes old snapshots and keeps latest N', () => {
+    const ctx = setupTempRuntime();
+    try {
+        fs.writeFileSync(ctx.paths.envPath, 'TOKEN=ok\n');
+        try {
+            fs.chmodSync(ctx.paths.envPath, 0o600);
+        } catch { }
+        fs.writeFileSync(ctx.paths.dbPath, 'db');
+
+        ctx.backup.createRuntimeBackup({ backupId: '2026-01-01T00-00-00-000Z', reason: 'old1' });
+        ctx.backup.createRuntimeBackup({ backupId: '2026-01-02T00-00-00-000Z', reason: 'old2' });
+        ctx.backup.createRuntimeBackup({ backupId: '2026-01-03T00-00-00-000Z', reason: 'newest' });
+
+        const result = ctx.backup.pruneBackups({ keep: 2 });
+        assert.equal(result.total, 3);
+        assert.equal(result.removed.length, 1);
+        assert.equal(result.remaining, 2);
+
+        const remaining = ctx.backup.listBackups();
+        assert.equal(remaining.length, 2);
+        assert.equal(remaining.some((item) => item.id === '2026-01-01T00-00-00-000Z'), false);
     } finally {
         ctx.cleanup();
     }

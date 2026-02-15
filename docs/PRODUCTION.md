@@ -92,6 +92,8 @@ CLI snapshot flow:
 ```bash
 nichebot backup
 nichebot backup list
+nichebot backup verify --latest
+nichebot backup prune --keep 10
 nichebot restore <backup-id>
 ```
 

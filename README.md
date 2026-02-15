@@ -124,6 +124,9 @@ nichebot start          # validate + start bot
 nichebot stop           # stop running process using runtime lock
 nichebot backup         # create runtime backup snapshot
 nichebot backup list    # list backup snapshots
+nichebot backup verify <id>
+nichebot backup verify --latest
+nichebot backup prune --keep 10
 nichebot restore <id>   # restore backup snapshot
 nichebot restore --latest
 ```

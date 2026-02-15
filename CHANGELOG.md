@@ -19,6 +19,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - 💾 Runtime snapshot backups in `~/.nichebot/backups`
 - ♻️ New CLI commands: `nichebot backup`, `nichebot backup list`, `nichebot restore`
 - 🚀 Release readiness checker (`npm run release:check`)
+- ✅ Backup integrity verification with SHA-256 checksums
+- 🧹 Backup retention command: `nichebot backup prune --keep <N>`
 
 ### Changed
 - Scheduler now skips auto-publish when quality score is below threshold (`QUALITY_MIN_AUTO_PUBLISH_SCORE`)
@@ -27,6 +29,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - Doctor report now includes runtime lock status
 - Doctor report now includes backup inventory summary
 - CI now includes a release readiness gate
+- Doctor report now includes latest backup integrity state
 
 ## [1.2.0] - 2026-02-15
 

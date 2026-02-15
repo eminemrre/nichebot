@@ -7,7 +7,7 @@
  *   nichebot doctor [--json]
  *   nichebot start
  *   nichebot stop
- *   nichebot backup
+ *   nichebot backup [list|verify|prune]
  *   nichebot restore <id|--latest>
  *   nichebot (defaults to start)
  */
@@ -33,7 +33,9 @@ const {
     listBackups,
     getLatestBackup,
     createRuntimeBackup,
+    verifyBackup,
     restoreRuntimeBackup,
+    pruneBackups,
 } = require('./runtime/backup');
 const {
     config,
@@ -150,6 +152,8 @@ function printHelp() {
     console.log('  stop            Stop running bot process (if lock is active)');
     console.log('  backup          Create runtime backup');
     console.log('  backup list     List available backups');
+    console.log('  backup verify   Verify backup integrity');
+    console.log('  backup prune    Prune old backups by retention');
     console.log('  restore <id>    Restore runtime backup');
     console.log('  help            Show this help');
     console.log('');
@@ -412,6 +416,16 @@ function buildDoctorReport() {
     const validation = validateConfig();
     const legacy = findLegacyPaths();
     const backups = listBackups();
+    const latestBackup = backups[0] || null;
+    const latestBackupVerification = latestBackup
+        ? (() => {
+            try {
+                return verifyBackup(latestBackup.id);
+            } catch (error) {
+                return { valid: false, issues: [error.message], warnings: [] };
+            }
+        })()
+        : null;
 
     return {
         runtime: {
@@ -426,7 +440,13 @@ function buildDoctorReport() {
             backups: {
                 dir: backupsDir,
                 count: backups.length,
-                latest: backups[0] || null,
+                latest: latestBackup,
+                latestIntegrity: latestBackupVerification
+                    ? {
+                        valid: latestBackupVerification.valid,
+                        issues: latestBackupVerification.issues,
+                    }
+                    : null,
             },
         },
         config: {
@@ -461,6 +481,13 @@ function printDoctorReport(report) {
                 : 'missing'})`
     );
     console.log(`Backups     : ${report.runtime.backups.dir} (${report.runtime.backups.count})`);
+    if (report.runtime.backups.latest) {
+        console.log(`Latest bak  : ${report.runtime.backups.latest.id}`);
+        const integrity = report.runtime.backups.latestIntegrity;
+        if (integrity) {
+            console.log(`Backup chk  : ${integrity.valid ? 'valid' : 'invalid'}`);
+        }
+    }
     console.log(`Provider    : ${report.config.provider}`);
     console.log(`Language    : ${report.config.language}`);
     console.log(`Template    : ${report.config.promptTemplateVersion}`);
@@ -523,8 +550,18 @@ function printBackupList(backups) {
     backups.forEach((backup, index) => {
         const createdAt = backup.createdAt || 'unknown-time';
         const reason = backup.reason || 'unknown-reason';
-        console.log(`${index + 1}. ${backup.id} (${createdAt}) reason=${reason}`);
+        const bytes = Number(backup.totalBytes || 0);
+        const files = Number(backup.fileCount || 0);
+        console.log(`${index + 1}. ${backup.id} (${createdAt}) reason=${reason} files=${files} bytes=${bytes}`);
     });
+}
+
+function getOptionValue(args, optionName) {
+    const index = args.indexOf(optionName);
+    if (index === -1) return null;
+    const next = args[index + 1];
+    if (!next || next.startsWith('--')) return null;
+    return next;
 }
 
 async function main() {
@@ -597,12 +634,63 @@ async function main() {
 
     if (command === 'backup') {
         const asJson = args.includes('--json');
-        if (args[0] === 'list') {
+        const subcommand = args[0] && !args[0].startsWith('--')
+            ? String(args[0]).toLowerCase()
+            : null;
+
+        if (subcommand === 'list') {
             const backups = listBackups();
             if (asJson) {
                 console.log(JSON.stringify({ backups }, null, 2));
             } else {
                 printBackupList(backups);
+            }
+            return;
+        }
+
+        if (subcommand === 'verify') {
+            const explicitId = args.slice(1).find((value) => !value.startsWith('--'));
+            const backupId = explicitId || (args.includes('--latest') ? getLatestBackup()?.id : null);
+            if (!backupId) {
+                console.error('No backup id provided. Usage: nichebot backup verify <id> or --latest');
+                process.exitCode = 1;
+                return;
+            }
+
+            const verification = verifyBackup(backupId);
+            if (asJson) {
+                console.log(JSON.stringify(verification, null, 2));
+            } else {
+                console.log(`Backup verify: ${verification.backupId}`);
+                console.log(`Status: ${verification.valid ? 'valid' : 'invalid'}`);
+                console.log(`Checked files: ${verification.checkedFiles}/${verification.manifestFileCount}`);
+                if (verification.issues.length > 0) {
+                    verification.issues.forEach((issue, index) => {
+                        console.log(`Issue ${index + 1}: ${issue}`);
+                    });
+                }
+            }
+            process.exitCode = verification.valid ? 0 : 1;
+            return;
+        }
+
+        if (subcommand === 'prune') {
+            const keepValue = getOptionValue(args, '--keep');
+            const keep = keepValue !== null ? Number.parseInt(keepValue, 10) : 10;
+            if (!Number.isInteger(keep) || keep < 0) {
+                console.error('Invalid --keep value. Use a non-negative integer.');
+                process.exitCode = 1;
+                return;
+            }
+
+            const result = pruneBackups({ keep });
+            if (asJson) {
+                console.log(JSON.stringify(result, null, 2));
+            } else {
+                console.log(`Pruned backups: removed=${result.removed.length}, remaining=${result.remaining}, keep=${result.keep}`);
+                if (result.removed.length > 0) {
+                    console.log(`Removed ids: ${result.removed.join(', ')}`);
+                }
             }
             return;
         }

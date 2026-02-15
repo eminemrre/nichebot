@@ -37,6 +37,11 @@ test('cli backup and restore flow works end-to-end', () => {
         const payload = JSON.parse(backupResult.stdout);
         assert.equal(typeof payload.id, 'string');
 
+        const verifyResult = runCli(['backup', 'verify', payload.id, '--json'], runtimeEnv);
+        assert.equal(verifyResult.status, 0);
+        const verifyPayload = JSON.parse(verifyResult.stdout);
+        assert.equal(verifyPayload.valid, true);
+
         fs.writeFileSync(envFile, 'STATE=new\n');
         fs.writeFileSync(dbFile, 'db-new');
 
@@ -49,6 +54,16 @@ test('cli backup and restore flow works end-to-end', () => {
         const dbAfter = fs.readFileSync(dbFile, 'utf8');
         assert.equal(envAfter, 'STATE=old\n');
         assert.equal(dbAfter, 'db-old');
+
+        const secondBackup = runCli(['backup', '--json'], runtimeEnv);
+        assert.equal(secondBackup.status, 0);
+        const thirdBackup = runCli(['backup', '--json'], runtimeEnv);
+        assert.equal(thirdBackup.status, 0);
+
+        const pruneResult = runCli(['backup', 'prune', '--keep', '1', '--json'], runtimeEnv);
+        assert.equal(pruneResult.status, 0);
+        const prunePayload = JSON.parse(pruneResult.stdout);
+        assert.equal(prunePayload.remaining, 1);
     } finally {
         fs.rmSync(tempHome, { recursive: true, force: true });
     }
