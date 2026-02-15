@@ -4,6 +4,35 @@ const { dataDir, dbPath, ensureRuntimeDirs } = require('../runtime/paths');
 
 let db;
 
+function hasColumn(tableName, columnName) {
+  const columns = db.prepare(`PRAGMA table_info(${tableName})`).all();
+  return columns.some((column) => column.name === columnName);
+}
+
+function migratePostsSchema() {
+  const migrations = [
+    {
+      column: 'prompt_version',
+      sql: 'ALTER TABLE posts ADD COLUMN prompt_version TEXT',
+    },
+    {
+      column: 'quality_score',
+      sql: 'ALTER TABLE posts ADD COLUMN quality_score INTEGER',
+    },
+    {
+      column: 'quality_flags',
+      sql: 'ALTER TABLE posts ADD COLUMN quality_flags TEXT',
+    },
+  ];
+
+  migrations.forEach((migration) => {
+    if (!hasColumn('posts', migration.column)) {
+      db.exec(migration.sql);
+      logger.info('DB migration applied', { table: 'posts', column: migration.column });
+    }
+  });
+}
+
 /**
  * Veritabanını başlat ve tabloları oluştur
  */
@@ -34,11 +63,15 @@ function initDatabase() {
       type TEXT DEFAULT 'tweet',
       status TEXT DEFAULT 'draft',
       twitter_id TEXT,
+      prompt_version TEXT,
+      quality_score INTEGER,
+      quality_flags TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       posted_at DATETIME,
       FOREIGN KEY (niche_id) REFERENCES niches(id)
     )
   `);
+  migratePostsSchema();
 
   // Profil analizi sonuçları
   db.exec(`
@@ -110,9 +143,27 @@ function removeNiche(name) {
 
 // === Post İşlemleri ===
 
-function savePost(nicheId, content, type = 'tweet', status = 'draft') {
-  const stmt = db.prepare('INSERT INTO posts (niche_id, content, type, status) VALUES (?, ?, ?, ?)');
-  return stmt.run(nicheId, content, type, status);
+function savePost(nicheId, content, type = 'tweet', status = 'draft', metadata = {}) {
+  const promptVersion = metadata.promptVersion ? String(metadata.promptVersion) : null;
+  const qualityScore = Number.isFinite(metadata.qualityScore)
+    ? Math.round(Number(metadata.qualityScore))
+    : null;
+  const qualityFlags = Array.isArray(metadata.qualityFlags)
+    ? JSON.stringify(metadata.qualityFlags)
+    : null;
+
+  const stmt = db.prepare(`
+    INSERT INTO posts (
+      niche_id,
+      content,
+      type,
+      status,
+      prompt_version,
+      quality_score,
+      quality_flags
+    ) VALUES (?, ?, ?, ?, ?, ?, ?)
+  `);
+  return stmt.run(nicheId, content, type, status, promptVersion, qualityScore, qualityFlags);
 }
 
 function markPostAsPublished(postId, twitterId = null) {
@@ -136,7 +187,8 @@ function getPostStats() {
       COUNT(*) as total,
       SUM(CASE WHEN status = 'published' THEN 1 ELSE 0 END) as published,
       SUM(CASE WHEN status = 'draft' THEN 1 ELSE 0 END) as drafts,
-      SUM(CASE WHEN date(posted_at) = date('now') THEN 1 ELSE 0 END) as today
+      SUM(CASE WHEN date(posted_at) = date('now') THEN 1 ELSE 0 END) as today,
+      ROUND(AVG(CASE WHEN quality_score IS NOT NULL THEN quality_score END), 1) as avg_quality
     FROM posts
   `).get();
 }

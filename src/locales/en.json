@@ -27,6 +27,10 @@
         "preview_header": "📝 *Tweet Preview:*\n\n",
         "niche_label": "📌 Niche: {niche}",
         "char_count": "📏 {count} characters",
+        "template_label": "🧩 Template: {version}",
+        "quality_label": "🧪 Quality: {score}/100 ({grade})",
+        "quality_action": "⚠️ Quality status: {action}",
+        "red_flags": "🚩 Red flags: {flags}",
         "approve": "✅ /onayla — Publish",
         "reject": "🔄 /reddet — Generate new",
         "edit_hint": "✏️ Or send your edited version as text",
@@ -71,12 +75,14 @@
         "published": "  Published: {count}",
         "drafts": "  Drafts: {count}",
         "today": "  Today: {count}/{max}",
+        "avg_quality": "  Avg quality: {score}",
         "niches_label": "🏷 *Niches ({count}):* {list}"
     },
     "scheduler": {
         "auto_posted": "✅ *Auto Tweet Published!*\n\n📌 Niche: {niche}\n📝 {content}\n\n🔗 https://twitter.com/i/status/{tweetId}",
         "auto_failed": "❌ Auto tweet failed: {error}",
         "auto_generated": "📝 *Content Auto-Generated* (Twitter not connected)\n\n📌 Niche: {niche}\n{content}",
+        "low_quality": "⚠️ *Auto publish skipped*\n\n📌 Niche: {niche}\n🧪 Score: below threshold ({score} < {min})\n🚩 Flags: {flags}",
         "daily_limit": "Daily limit ({max}) reached, skipping."
     }
 }

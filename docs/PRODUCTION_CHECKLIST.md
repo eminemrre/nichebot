@@ -9,6 +9,8 @@ Use this checklist before and after every production deployment.
 - [ ] `TELEGRAM_ALLOWED_USER_ID` is correct and verified
 - [ ] Only one LLM provider is active with a valid API key
 - [ ] Twitter keys are either fully configured or fully empty
+- [ ] `PROMPT_TEMPLATE_VERSION` is set to a supported value (`v1`)
+- [ ] `QUALITY_MIN_AUTO_PUBLISH_SCORE` is between `0-100` (recommended `65+`)
 - [ ] `.env` permissions are restricted (`chmod 600 ~/.nichebot/.env`)
 
 ## B) Service setup (systemd)

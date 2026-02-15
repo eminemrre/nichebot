@@ -27,6 +27,10 @@
         "preview_header": "📝 *Tweet Önizleme:*\n\n",
         "niche_label": "📌 Niş: {niche}",
         "char_count": "📏 {count} karakter",
+        "template_label": "🧩 Şablon: {version}",
+        "quality_label": "🧪 Kalite: {score}/100 ({grade})",
+        "quality_action": "⚠️ Kalite durumu: {action}",
+        "red_flags": "🚩 Red-flag: {flags}",
         "approve": "✅ /onayla — Paylaş",
         "reject": "🔄 /reddet — Yenisini üret",
         "edit_hint": "✏️ Veya düzenlenmiş halini metin olarak gönderin",
@@ -71,12 +75,14 @@
         "published": "  Paylaşılan: {count}",
         "drafts": "  Taslak: {count}",
         "today": "  Bugün: {count}/{max}",
+        "avg_quality": "  Ortalama kalite: {score}",
         "niches_label": "🏷 *Nişler ({count}):* {list}"
     },
     "scheduler": {
         "auto_posted": "✅ *Otomatik Tweet Paylaşıldı!*\n\n📌 Niş: {niche}\n📝 {content}\n\n🔗 https://twitter.com/i/status/{tweetId}",
         "auto_failed": "❌ Otomatik tweet paylaşılamadı: {error}",
         "auto_generated": "📝 *Otomatik İçerik Üretildi* (Twitter bağlı değil)\n\n📌 Niş: {niche}\n{content}",
+        "low_quality": "⚠️ *Otomatik paylaşım atlandı*\n\n📌 Niş: {niche}\n🧪 Skor: {score}/{min} eşiğinin altında\n🚩 İşaretler: {flags}",
         "daily_limit": "Günlük limit ({max}) aşıldı, atlanıyor."
     }
 }

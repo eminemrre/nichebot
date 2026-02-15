@@ -21,6 +21,8 @@ const ENV_KEYS = [
     'TWITTER_ACCESS_SECRET',
     'DEFAULT_LANGUAGE',
     'MAX_DAILY_POSTS',
+    'PROMPT_TEMPLATE_VERSION',
+    'QUALITY_MIN_AUTO_PUBLISH_SCORE',
     'LOG_LEVEL',
     'TZ',
     'NODE_ENV',
@@ -134,6 +136,30 @@ NODE_ENV=production
         const codes = result.errors.map((e) => e.code);
         assert.equal(result.valid, false);
         assert.ok(codes.includes('PARTIAL_TWITTER_CONFIG'));
+    } finally {
+        ctx.cleanup();
+    }
+});
+
+test('validateConfig rejects invalid QUALITY_MIN_AUTO_PUBLISH_SCORE', () => {
+    const ctx = withConfig(`
+TELEGRAM_BOT_TOKEN=test-telegram-token
+TELEGRAM_ALLOWED_USER_ID=123456789
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=test-deepseek-key
+QUALITY_MIN_AUTO_PUBLISH_SCORE=999
+DEFAULT_LANGUAGE=tr
+MAX_DAILY_POSTS=5
+LOG_LEVEL=info
+TZ=UTC
+NODE_ENV=production
+`);
+
+    try {
+        const result = ctx.configModule.validateConfig();
+        const codes = result.errors.map((e) => e.code);
+        assert.equal(result.valid, false);
+        assert.ok(codes.includes('INVALID_QUALITY_MIN_AUTO_PUBLISH_SCORE'));
     } finally {
         ctx.cleanup();
     }

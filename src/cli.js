@@ -104,6 +104,14 @@ function buildEnvFileContent(values) {
         '# --- GENERAL SETTINGS ---',
         `DEFAULT_LANGUAGE=${quoteEnvValue(values.DEFAULT_LANGUAGE)}`,
         `MAX_DAILY_POSTS=${quoteEnvValue(values.MAX_DAILY_POSTS)}`,
+        '',
+        '# --- PROMPT & QUALITY ---',
+        '# Supported prompt template versions: v1',
+        `PROMPT_TEMPLATE_VERSION=${quoteEnvValue(values.PROMPT_TEMPLATE_VERSION)}`,
+        '# Auto scheduler publish threshold (0-100)',
+        `QUALITY_MIN_AUTO_PUBLISH_SCORE=${quoteEnvValue(values.QUALITY_MIN_AUTO_PUBLISH_SCORE)}`,
+        '',
+        '# --- RUNTIME ---',
         `LOG_LEVEL=${quoteEnvValue(values.LOG_LEVEL)}`,
         `TZ=${quoteEnvValue(values.TZ)}`,
         `NODE_ENV=${quoteEnvValue(values.NODE_ENV)}`,
@@ -312,6 +320,16 @@ async function runSetupWizard() {
             required: true,
             validator: (v) => (/^\d+$/.test(v) && Number(v) > 0 ? true : 'Use a positive integer.'),
         });
+        const promptTemplateVersion = await promptInput(rl, 'PROMPT_TEMPLATE_VERSION (v1)', {
+            defaultValue: (current.PROMPT_TEMPLATE_VERSION || 'v1').toLowerCase(),
+            required: true,
+            validator: (v) => (/^v\d+$/.test(v.toLowerCase()) ? true : 'Use format like v1.'),
+        });
+        const qualityMinAutoPublishScore = await promptInput(rl, 'QUALITY_MIN_AUTO_PUBLISH_SCORE (0-100)', {
+            defaultValue: current.QUALITY_MIN_AUTO_PUBLISH_SCORE || '65',
+            required: true,
+            validator: (v) => (/^\d+$/.test(v) && Number(v) >= 0 && Number(v) <= 100 ? true : 'Use an integer between 0 and 100.'),
+        });
         const timezone = await promptInput(rl, 'TZ', {
             defaultValue: current.TZ || process.env.TZ || 'UTC',
             required: true,
@@ -343,6 +361,8 @@ async function runSetupWizard() {
             TWITTER_ACCESS_SECRET: twitterAccessSecret,
             DEFAULT_LANGUAGE: language.toLowerCase(),
             MAX_DAILY_POSTS: maxDailyPosts,
+            PROMPT_TEMPLATE_VERSION: promptTemplateVersion.toLowerCase(),
+            QUALITY_MIN_AUTO_PUBLISH_SCORE: qualityMinAutoPublishScore,
             LOG_LEVEL: logLevel,
             TZ: timezone,
             NODE_ENV: nodeEnv,
@@ -388,6 +408,8 @@ function buildDoctorReport() {
         config: {
             provider: config.llm.provider,
             language: config.defaultLanguage,
+            promptTemplateVersion: config.prompt.templateVersion,
+            qualityMinAutoPublishScore: config.quality.minAutoPublishScore,
             validation,
         },
         legacy: {
@@ -409,6 +431,8 @@ function printDoctorReport(report) {
     console.log(`Logs dir    : ${report.runtime.logsDir}`);
     console.log(`Provider    : ${report.config.provider}`);
     console.log(`Language    : ${report.config.language}`);
+    console.log(`Template    : ${report.config.promptTemplateVersion}`);
+    console.log(`Auto-Quality: ${report.config.qualityMinAutoPublishScore}`);
     console.log('');
     console.log(formatValidationReport(report.config.validation));
     console.log('');

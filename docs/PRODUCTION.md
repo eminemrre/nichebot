@@ -34,6 +34,8 @@ nichebot doctor
 - [ ] `TELEGRAM_ALLOWED_USER_ID` set to your own user id
 - [ ] LLM key configured only for selected provider
 - [ ] Twitter keys either fully configured or fully empty
+- [ ] `PROMPT_TEMPLATE_VERSION` uses supported version (`v1`)
+- [ ] `QUALITY_MIN_AUTO_PUBLISH_SCORE` is set (recommended: `65` or higher)
 - [ ] `.env` file permissions restricted (600)
 - [ ] Runtime home backed up regularly
 

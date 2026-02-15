@@ -4,6 +4,7 @@ const { generateTweet, generateThread } = require('../llm/generator');
 const { postTweet, postThread, getMe } = require('../twitter/client');
 const { analyzeProfile, formatAnalysisForTelegram } = require('../twitter/analyzer');
 const { addAndStartSchedule, getActiveJobCount, stopAll } = require('../scheduler/cron');
+const { evaluateTweetQuality, summarizeRedFlags } = require('../quality/content-quality');
 const db = require('../db/database');
 const { t } = require('../utils/i18n');
 const { RateLimiter, escapeMarkdown, stripMarkdownFormatting, sanitizeInput } = require('../utils/helpers');
@@ -21,6 +22,27 @@ function md(value) {
 function isMarkdownParseError(error) {
     const message = String(error?.message || '').toLowerCase();
     return message.includes('parse entities') || message.includes("can't parse");
+}
+
+function formatQualityMetadata(quality, promptVersion) {
+    const lines = [];
+
+    if (promptVersion) {
+        lines.push(t('generate.template_label', { version: md(promptVersion) }));
+    }
+
+    if (quality) {
+        lines.push(t('generate.quality_label', { score: quality.score, grade: md(quality.grade) }));
+        if (quality.action && quality.action !== 'allow') {
+            lines.push(t('generate.quality_action', { action: md(quality.action) }));
+        }
+        if (Array.isArray(quality.redFlags) && quality.redFlags.length > 0) {
+            lines.push(t('generate.red_flags', { flags: md(summarizeRedFlags(quality.redFlags)) }));
+        }
+    }
+
+    if (lines.length === 0) return '';
+    return `${lines.join('\n')}\n`;
 }
 
 function sendMessageSafe(chatId, text, options = {}) {
@@ -287,16 +309,28 @@ function registerCommands() {
                 tone: niche.tone,
                 language: config.defaultLanguage,
                 profileContext,
+                templateVersion: config.prompt.templateVersion,
             });
 
             const fullContent = result.hashtags ? `${result.content}\n\n${result.hashtags}` : result.content;
-            const saved = db.savePost(niche.id, fullContent, 'tweet', 'draft');
+            const saved = db.savePost(niche.id, fullContent, 'tweet', 'draft', {
+                promptVersion: result?.prompt?.version || null,
+                qualityScore: result?.quality?.score ?? null,
+                qualityFlags: result?.quality?.redFlags || [],
+            });
 
-            pendingPost = { id: saved.lastInsertRowid, content: fullContent, nicheName: niche.name };
+            pendingPost = {
+                id: saved.lastInsertRowid,
+                content: fullContent,
+                nicheName: niche.name,
+                quality: result.quality,
+                promptVersion: result?.prompt?.version || null,
+            };
 
             let preview = t('generate.preview_header') + md(fullContent) + '\n\n';
             preview += `${t('generate.niche_label', { niche: md(niche.name) })}\n`;
             preview += `${t('generate.char_count', { count: fullContent.length })}\n\n`;
+            preview += formatQualityMetadata(result.quality, result?.prompt?.version);
             preview += `${t('generate.approve')}\n${t('generate.reject')}\n${t('generate.edit_hint')}`;
 
             sendMessageSafe(chatId, preview, { parse_mode: 'Markdown' });
@@ -325,6 +359,7 @@ function registerCommands() {
             const result = await generateThread(niche.name, count, {
                 tone: niche.tone,
                 language: config.defaultLanguage,
+                templateVersion: config.prompt.templateVersion,
             });
 
             let preview = t('thread.preview_header', { count: result.tweets.length }) + '\n';
@@ -332,10 +367,15 @@ function registerCommands() {
                 preview += `*${i + 1}/${result.tweets.length}* ${md(tw)}\n\n`;
             });
             if (result.hashtags) preview += `${md(result.hashtags)}\n\n`;
+            preview += formatQualityMetadata(result.quality, result?.prompt?.version);
             preview += `${t('generate.approve')}\n${t('generate.reject')}`;
 
             const fullContent = result.tweets.join('\n---\n');
-            const saved = db.savePost(niche.id, fullContent, 'thread', 'draft');
+            const saved = db.savePost(niche.id, fullContent, 'thread', 'draft', {
+                promptVersion: result?.prompt?.version || null,
+                qualityScore: result?.quality?.score ?? null,
+                qualityFlags: result?.quality?.redFlags || [],
+            });
 
             pendingPost = {
                 id: saved.lastInsertRowid,
@@ -344,6 +384,8 @@ function registerCommands() {
                 hashtags: result.hashtags,
                 nicheName: niche.name,
                 type: 'thread',
+                quality: result.quality,
+                promptVersion: result?.prompt?.version || null,
             };
 
             sendMessageSafe(chatId, preview, { parse_mode: 'Markdown' });
@@ -414,15 +456,29 @@ function registerCommands() {
         sendMessageSafe(chatId, t('generate.generating', { niche: md(nicheName) }), { parse_mode: 'Markdown' });
 
         try {
-            const result = await generateTweet(nicheName, { language: config.defaultLanguage });
+            const result = await generateTweet(nicheName, {
+                language: config.defaultLanguage,
+                templateVersion: config.prompt.templateVersion,
+            });
             const fullContent = result.hashtags ? `${result.content}\n\n${result.hashtags}` : result.content;
 
             const niche = db.getNicheByName(nicheName);
-            const saved = db.savePost(niche.id, fullContent, 'tweet', 'draft');
+            const saved = db.savePost(niche.id, fullContent, 'tweet', 'draft', {
+                promptVersion: result?.prompt?.version || null,
+                qualityScore: result?.quality?.score ?? null,
+                qualityFlags: result?.quality?.redFlags || [],
+            });
 
-            pendingPost = { id: saved.lastInsertRowid, content: fullContent, nicheName };
+            pendingPost = {
+                id: saved.lastInsertRowid,
+                content: fullContent,
+                nicheName,
+                quality: result.quality,
+                promptVersion: result?.prompt?.version || null,
+            };
 
             let preview = t('generate.new_preview') + md(fullContent) + '\n\n';
+            preview += formatQualityMetadata(result.quality, result?.prompt?.version);
             preview += `${t('generate.approve')} | ${t('generate.reject')}`;
 
             sendMessageSafe(chatId, preview, { parse_mode: 'Markdown' });
@@ -535,6 +591,7 @@ function registerCommands() {
         text += t('stats.published', { count: stats.published || 0 }) + '\n';
         text += t('stats.drafts', { count: stats.drafts || 0 }) + '\n';
         text += t('stats.today', { count: stats.today || 0, max: config.maxDailyPosts }) + '\n\n';
+        text += t('stats.avg_quality', { score: stats.avg_quality ?? '-' }) + '\n';
         text += t('stats.niches_label', { count: niches.length, list: md(niches.map((n) => n.name).join(', ') || '-') });
 
         sendMessageSafe(chatId, text, { parse_mode: 'Markdown' });
@@ -547,14 +604,19 @@ function registerCommands() {
 
         if (pendingPost && msg.text) {
             pendingPost.content = msg.text;
+            pendingPost.quality = evaluateTweetQuality({ content: msg.text });
             const niche = db.getNicheByName(pendingPost.nicheName);
             if (niche) {
-                db.savePost(niche.id, msg.text, 'tweet', 'draft');
+                db.savePost(niche.id, msg.text, 'tweet', 'draft', {
+                    promptVersion: pendingPost.promptVersion || null,
+                    qualityScore: pendingPost.quality?.score ?? null,
+                    qualityFlags: pendingPost.quality?.redFlags || [],
+                });
             }
 
             sendMessageSafe(
                 msg.chat.id,
-                `${t('generate.updated')}\n\n${md(msg.text)}\n\n${t('generate.approve')} | ${t('generate.reject')}`,
+                `${t('generate.updated')}\n\n${md(msg.text)}\n\n${formatQualityMetadata(pendingPost.quality, pendingPost.promptVersion)}${t('generate.approve')} | ${t('generate.reject')}`,
                 { parse_mode: 'Markdown' }
             );
         }

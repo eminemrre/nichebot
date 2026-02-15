@@ -3,6 +3,7 @@ const dotenv = require('dotenv');
 const { envPath } = require('./runtime/paths');
 
 const VALID_PROVIDERS = ['openai', 'anthropic', 'deepseek'];
+const SUPPORTED_PROMPT_TEMPLATE_VERSIONS = ['v1'];
 
 const config = {};
 
@@ -46,11 +47,17 @@ function parseBoolean(rawValue, defaultValue = false) {
     return Boolean(defaultValue);
 }
 
+function parseInteger(rawValue, defaultValue) {
+    const parsed = Number.parseInt(rawValue, 10);
+    if (!Number.isFinite(parsed)) return defaultValue;
+    return parsed;
+}
+
 function buildConfigFromEnv() {
     const parsedAllowedUser = parseAllowedUserId(process.env.TELEGRAM_ALLOWED_USER_ID);
     const maxDailyPostsRaw = Number.parseInt(process.env.MAX_DAILY_POSTS, 10);
-
-    const observabilityPortRaw = Number.parseInt(process.env.OBSERVABILITY_PORT, 10);
+    const observabilityPortRaw = parseInteger(process.env.OBSERVABILITY_PORT, 9464);
+    const qualityMinAutoPublishRaw = parseInteger(process.env.QUALITY_MIN_AUTO_PUBLISH_SCORE, 65);
 
     return {
         // Telegram
@@ -96,6 +103,12 @@ function buildConfigFromEnv() {
             host: String(process.env.OBSERVABILITY_HOST || '127.0.0.1').trim(),
             port: Number.isFinite(observabilityPortRaw) ? observabilityPortRaw : 9464,
             token: String(process.env.OBSERVABILITY_TOKEN || '').trim(),
+        },
+        prompt: {
+            templateVersion: String(process.env.PROMPT_TEMPLATE_VERSION || 'v1').trim().toLowerCase(),
+        },
+        quality: {
+            minAutoPublishScore: Number.isFinite(qualityMinAutoPublishRaw) ? qualityMinAutoPublishRaw : 65,
         },
 
         // Internal metadata
@@ -227,6 +240,26 @@ function validateConfig() {
             field: 'OBSERVABILITY_TOKEN',
             message: 'Observability is exposed on 0.0.0.0 without OBSERVABILITY_TOKEN.',
             fix: 'Set OBSERVABILITY_TOKEN or bind OBSERVABILITY_HOST to 127.0.0.1.',
+        });
+    }
+
+    const promptVersion = currentConfig.prompt?.templateVersion || 'v1';
+    if (!SUPPORTED_PROMPT_TEMPLATE_VERSIONS.includes(promptVersion)) {
+        addIssue(warnings, {
+            code: 'UNSUPPORTED_PROMPT_TEMPLATE_VERSION',
+            field: 'PROMPT_TEMPLATE_VERSION',
+            message: `PROMPT_TEMPLATE_VERSION "${promptVersion}" is not supported.`,
+            fix: `Use one of: ${SUPPORTED_PROMPT_TEMPLATE_VERSIONS.join(', ')}. Fallback will be applied automatically.`,
+        });
+    }
+
+    const minAutoPublishScore = currentConfig.quality?.minAutoPublishScore;
+    if (!Number.isInteger(minAutoPublishScore) || minAutoPublishScore < 0 || minAutoPublishScore > 100) {
+        addIssue(errors, {
+            code: 'INVALID_QUALITY_MIN_AUTO_PUBLISH_SCORE',
+            field: 'QUALITY_MIN_AUTO_PUBLISH_SCORE',
+            message: `QUALITY_MIN_AUTO_PUBLISH_SCORE must be between 0 and 100, got "${minAutoPublishScore}".`,
+            fix: 'Set QUALITY_MIN_AUTO_PUBLISH_SCORE to a valid number (example: 65).',
         });
     }
 

@@ -56,6 +56,9 @@ It supports:
 - Scheduling automation
 : Define posting times with cron-based execution.
 
+- Prompt quality guardrails
+: Versioned prompt templates, quality scoring, and automatic red-flag checks.
+
 - Operational safety
 : Rate limiting, sanitized inputs, and secret redaction in logs.
 
@@ -105,6 +108,8 @@ export PATH="$(npm prefix -g)/bin:$PATH"
 - SQLite DB: `~/.nichebot/data/nichebot.db`
 - Logs: `~/.nichebot/data/logs/`
 - Override runtime home: `NICHEBOT_HOME=/custom/path`
+- Prompt template version: `PROMPT_TEMPLATE_VERSION` (default `v1`)
+- Scheduler quality threshold: `QUALITY_MIN_AUTO_PUBLISH_SCORE` (default `65`)
 
 ### CLI commands
 

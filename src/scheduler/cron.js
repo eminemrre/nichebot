@@ -6,6 +6,7 @@ const { config, isTwitterConfigured } = require('../config');
 const { t } = require('../utils/i18n');
 const logger = require('../utils/logger');
 const metrics = require('../observability/metrics');
+const { summarizeRedFlags } = require('../quality/content-quality');
 
 const activeJobs = new Map();
 
@@ -71,15 +72,47 @@ function scheduleJob(schedule, notifyFn) {
             logger.info(`Otomatik içerik üretiliyor: ${schedule.niche_name}`);
 
             // İçerik üret
-            const result = await generateTweet(schedule.niche_name);
+            const result = await generateTweet(schedule.niche_name, {
+                language: config.defaultLanguage,
+                templateVersion: config.prompt.templateVersion,
+            });
             const fullContent = result.hashtags
                 ? `${result.content}\n\n${result.hashtags}`
                 : result.content;
+            const qualityScore = Number(result?.quality?.score);
+            const minAutoPublishScore = Number(config.quality?.minAutoPublishScore ?? 65);
 
             // Veritabanına kaydet
             const niche = db.getNicheByName(schedule.niche_name);
+            let draftInsertResult = null;
             if (niche) {
-                db.savePost(niche.id, fullContent, 'tweet', 'draft');
+                draftInsertResult = db.savePost(niche.id, fullContent, 'tweet', 'draft', {
+                    promptVersion: result?.prompt?.version || null,
+                    qualityScore: Number.isFinite(qualityScore) ? qualityScore : null,
+                    qualityFlags: result?.quality?.redFlags || [],
+                });
+            }
+
+            if (Number.isFinite(qualityScore) && qualityScore < minAutoPublishScore) {
+                metrics.incCounter('nichebot_scheduler_skipped_total', 'Total skipped scheduler runs', {
+                    reason: 'quality_threshold',
+                });
+                logger.warn('Otomatik paylaşım kalite eşiği nedeniyle atlandı', {
+                    niche: schedule.niche_name,
+                    score: qualityScore,
+                    minAutoPublishScore,
+                    redFlags: summarizeRedFlags(result?.quality?.redFlags || []),
+                });
+                if (notifyFn) {
+                    await notifyFn(t('scheduler.low_quality', {
+                        niche: schedule.niche_name,
+                        score: qualityScore,
+                        min: minAutoPublishScore,
+                        flags: summarizeRedFlags(result?.quality?.redFlags || []),
+                    }));
+                }
+                db.updateScheduleLastRun(schedule.id);
+                return;
             }
 
             // Twitter bağlıysa paylaş
@@ -87,9 +120,11 @@ function scheduleJob(schedule, notifyFn) {
                 const tweetResult = await postTweet(fullContent);
 
                 if (tweetResult.success) {
-                    const draft = db.getLastDraftPost();
-                    if (draft) {
-                        db.markPostAsPublished(draft.id, tweetResult.tweetId);
+                    if (draftInsertResult?.lastInsertRowid) {
+                        db.markPostAsPublished(draftInsertResult.lastInsertRowid, tweetResult.tweetId);
+                    } else {
+                        const draft = db.getLastDraftPost();
+                        if (draft) db.markPostAsPublished(draft.id, tweetResult.tweetId);
                     }
 
                     metrics.incCounter('nichebot_scheduler_publish_success_total', 'Successful scheduler publishes', {});

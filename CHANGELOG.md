@@ -6,6 +6,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+### Added
+- 🧩 Versioned prompt template registry (`tweet-v1`, `thread-v1`)
+- 🧪 Content quality engine with score/grade/checklist outputs
+- 🚩 Automatic red-flag detection and safe one-time regeneration on blocked outputs
+- 🗃 Post metadata persistence for `prompt_version`, `quality_score`, `quality_flags`
+- 📊 Quality-related Telegram preview details and scheduler guardrails
+
+### Changed
+- Scheduler now skips auto-publish when quality score is below threshold (`QUALITY_MIN_AUTO_PUBLISH_SCORE`)
+- Setup/doctor/config flow includes prompt template and quality threshold settings
+
 ## [1.2.0] - 2026-02-15
 
 ### Added
