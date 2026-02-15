@@ -60,6 +60,19 @@ function sanitizeInput(input, maxLength = 100) {
 }
 
 /**
+ * Niche adının güvenli biçimde doğrulanması
+ * Harfler (Unicode), sayılar, boşluk, alt çizgi ve tire kabul edilir.
+ */
+const NICHE_NAME_PATTERN = /^[\p{L}\p{N}\s_-]+$/u;
+
+function isValidNicheName(input) {
+    if (typeof input !== 'string') return false;
+    const value = input.trim();
+    if (!value) return false;
+    return NICHE_NAME_PATTERN.test(value);
+}
+
+/**
  * Basit rate limiter
  */
 class RateLimiter {
@@ -96,4 +109,11 @@ class RateLimiter {
     }
 }
 
-module.exports = { retry, escapeMarkdown, stripMarkdownFormatting, sanitizeInput, RateLimiter };
+module.exports = {
+    retry,
+    escapeMarkdown,
+    stripMarkdownFormatting,
+    sanitizeInput,
+    isValidNicheName,
+    RateLimiter,
+};

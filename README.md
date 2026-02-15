@@ -41,6 +41,10 @@ It supports:
 
 ## Showcase: 3-Minute Demo
 
+[![Watch 3-min demo](https://img.shields.io/badge/Watch-3_min_Demo-16a34a?style=for-the-badge&logo=github)](docs/assets/nichebot-demo.mp4)
+
+![NicheBot 3-minute demo preview](docs/assets/nichebot-demo.gif)
+
 ![NicheBot terminal setup screenshot](docs/assets/nichebot-terminal-showcase.svg)
 
 ![NicheBot Telegram command flow screenshot](docs/assets/nichebot-telegram-showcase.svg)
@@ -75,6 +79,7 @@ nichebot db doctor
 ```
 
 Full Turkish pitch/demo text: [`docs/DEMO_SALES_TR.md`](docs/DEMO_SALES_TR.md)
+Raw demo video: [`docs/assets/nichebot-demo.mp4`](docs/assets/nichebot-demo.mp4)
 
 ## Key Features
 

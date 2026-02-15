@@ -7,7 +7,13 @@ const { addAndStartSchedule, getActiveJobCount, stopAll } = require('../schedule
 const { evaluateTweetQuality, summarizeRedFlags } = require('../quality/content-quality');
 const db = require('../db/database');
 const { t } = require('../utils/i18n');
-const { RateLimiter, escapeMarkdown, stripMarkdownFormatting, sanitizeInput } = require('../utils/helpers');
+const {
+    RateLimiter,
+    escapeMarkdown,
+    stripMarkdownFormatting,
+    sanitizeInput,
+    isValidNicheName,
+} = require('../utils/helpers');
 const logger = require('../utils/logger');
 const metrics = require('../observability/metrics');
 
@@ -235,7 +241,7 @@ function registerCommands() {
         const raw = match[1].trim();
         const nicheName = sanitizeInput(raw, 50);
 
-        if (!nicheName || !/^[\w\sçğıöşüÇĞİÖŞÜa-zA-Z0-9]+$/.test(nicheName)) {
+        if (!isValidNicheName(nicheName)) {
             sendMessageSafe(chatId, t('niche.invalid_name'));
             return;
         }

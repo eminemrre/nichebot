@@ -1,6 +1,11 @@
 const assert = require('assert/strict');
 const { test } = require('node:test');
-const { escapeMarkdown, stripMarkdownFormatting, sanitizeInput } = require('../src/utils/helpers');
+const {
+    escapeMarkdown,
+    stripMarkdownFormatting,
+    sanitizeInput,
+    isValidNicheName,
+} = require('../src/utils/helpers');
 
 test('escapeMarkdown escapes markdown-special characters', () => {
     const raw = 'hello_[world](test)`code`';
@@ -17,4 +22,18 @@ test('stripMarkdownFormatting removes markdown formatting tokens', () => {
 test('sanitizeInput removes dangerous chars and trims length', () => {
     const sanitized = sanitizeInput('  <hello>{world}  ', 10);
     assert.equal(sanitized, 'hellowo');
+});
+
+test('isValidNicheName accepts unicode letters, spaces, underscores and dashes', () => {
+    assert.equal(isValidNicheName('Yapay Zeka'), true);
+    assert.equal(isValidNicheName('girişimcilik_2026'), true);
+    assert.equal(isValidNicheName('finans-teknoloji'), true);
+    assert.equal(isValidNicheName('çığ_Örnek 42'), true);
+});
+
+test('isValidNicheName rejects empty and punctuation-heavy inputs', () => {
+    assert.equal(isValidNicheName(''), false);
+    assert.equal(isValidNicheName('   '), false);
+    assert.equal(isValidNicheName('news!'), false);
+    assert.equal(isValidNicheName('drop table;'), false);
 });
