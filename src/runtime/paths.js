@@ -10,10 +10,11 @@ const envPath = path.join(runtimeHome, '.env');
 const dataDir = path.join(runtimeHome, 'data');
 const dbPath = path.join(dataDir, 'nichebot.db');
 const logsDir = path.join(dataDir, 'logs');
+const backupsDir = path.join(runtimeHome, 'backups');
 const lockPath = path.join(runtimeHome, 'nichebot.lock');
 
 function ensureRuntimeDirs() {
-    [runtimeHome, dataDir, logsDir].forEach((dir) => {
+    [runtimeHome, dataDir, logsDir, backupsDir].forEach((dir) => {
         if (!fs.existsSync(dir)) {
             fs.mkdirSync(dir, { recursive: true });
         }
@@ -42,6 +43,7 @@ module.exports = {
     dataDir,
     dbPath,
     logsDir,
+    backupsDir,
     lockPath,
     ensureRuntimeDirs,
     findLegacyPaths,

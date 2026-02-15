@@ -6,6 +6,9 @@
  *   nichebot setup
  *   nichebot doctor [--json]
  *   nichebot start
+ *   nichebot stop
+ *   nichebot backup
+ *   nichebot restore <id|--latest>
  *   nichebot (defaults to start)
  */
 
@@ -21,10 +24,17 @@ const {
     dataDir,
     dbPath,
     logsDir,
+    backupsDir,
     ensureRuntimeDirs,
     findLegacyPaths,
 } = require('./runtime/paths');
 const { getLockStatus, isPidRunning } = require('./runtime/lock');
+const {
+    listBackups,
+    getLatestBackup,
+    createRuntimeBackup,
+    restoreRuntimeBackup,
+} = require('./runtime/backup');
 const {
     config,
     loadEnv,
@@ -138,6 +148,9 @@ function printHelp() {
     console.log('  doctor [--json] Check runtime/config status without starting the bot');
     console.log('  start           Validate config and start bot runtime');
     console.log('  stop            Stop running bot process (if lock is active)');
+    console.log('  backup          Create runtime backup');
+    console.log('  backup list     List available backups');
+    console.log('  restore <id>    Restore runtime backup');
     console.log('  help            Show this help');
     console.log('');
     console.log('Runtime paths:');
@@ -145,6 +158,7 @@ function printHelp() {
     console.log(`  env:  ${envPath}`);
     console.log(`  db:   ${dbPath}`);
     console.log(`  lock: ${getLockStatus().path}`);
+    console.log(`  bak:  ${backupsDir}`);
     console.log('');
 }
 
@@ -397,6 +411,7 @@ function buildDoctorReport() {
     reloadConfig({ override: true });
     const validation = validateConfig();
     const legacy = findLegacyPaths();
+    const backups = listBackups();
 
     return {
         runtime: {
@@ -408,6 +423,11 @@ function buildDoctorReport() {
             dbExists: fs.existsSync(dbPath),
             logsDir,
             lock: getLockStatus(),
+            backups: {
+                dir: backupsDir,
+                count: backups.length,
+                latest: backups[0] || null,
+            },
         },
         config: {
             provider: config.llm.provider,
@@ -440,6 +460,7 @@ function printDoctorReport(report) {
                 ? 'stale'
                 : 'missing'})`
     );
+    console.log(`Backups     : ${report.runtime.backups.dir} (${report.runtime.backups.count})`);
     console.log(`Provider    : ${report.config.provider}`);
     console.log(`Language    : ${report.config.language}`);
     console.log(`Template    : ${report.config.promptTemplateVersion}`);
@@ -490,6 +511,20 @@ async function runStart(options = {}) {
     }
 
     require('./index');
+}
+
+function printBackupList(backups) {
+    if (!Array.isArray(backups) || backups.length === 0) {
+        console.log('No backups found.');
+        return;
+    }
+
+    console.log(`Found ${backups.length} backup(s):`);
+    backups.forEach((backup, index) => {
+        const createdAt = backup.createdAt || 'unknown-time';
+        const reason = backup.reason || 'unknown-reason';
+        console.log(`${index + 1}. ${backup.id} (${createdAt}) reason=${reason}`);
+    });
 }
 
 async function main() {
@@ -557,6 +592,67 @@ async function main() {
 
         console.error(`Process ${status.pid} did not stop within timeout.`);
         process.exitCode = 1;
+        return;
+    }
+
+    if (command === 'backup') {
+        const asJson = args.includes('--json');
+        if (args[0] === 'list') {
+            const backups = listBackups();
+            if (asJson) {
+                console.log(JSON.stringify({ backups }, null, 2));
+            } else {
+                printBackupList(backups);
+            }
+            return;
+        }
+
+        const created = createRuntimeBackup({ reason: 'manual_cli' });
+        if (asJson) {
+            console.log(JSON.stringify(created, null, 2));
+        } else {
+            console.log(`Backup created: ${created.id}`);
+            console.log(`Path: ${created.backupDir}`);
+            console.log(`Files: ${created.files.map((f) => f.path).join(', ') || '-'}`);
+        }
+        return;
+    }
+
+    if (command === 'restore') {
+        const asJson = args.includes('--json');
+        const target = args.find((value) => !value.startsWith('--'));
+        const lock = getLockStatus();
+
+        if (lock.active) {
+            console.error(
+                `Cannot restore while bot is running (pid=${lock.pid}). Stop it first: nichebot stop`
+            );
+            process.exitCode = 1;
+            return;
+        }
+
+        let backupId = target;
+        if (!backupId || backupId === '--latest') {
+            backupId = getLatestBackup()?.id || null;
+        }
+
+        if (!backupId) {
+            console.error('No backup id provided and no backup found.');
+            console.error('Usage: nichebot restore <backup-id>');
+            process.exitCode = 1;
+            return;
+        }
+
+        const restored = restoreRuntimeBackup(backupId, { createSafetyBackup: true });
+        if (asJson) {
+            console.log(JSON.stringify(restored, null, 2));
+        } else {
+            console.log(`Restore completed from backup: ${restored.backupId}`);
+            console.log(`Restored paths: ${restored.restored.join(', ') || '-'}`);
+            if (restored.preRestoreBackup) {
+                console.log(`Safety backup created: ${restored.preRestoreBackup.id}`);
+            }
+        }
         return;
     }
 

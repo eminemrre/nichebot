@@ -46,6 +46,8 @@ Recommended schedule:
 - [ ] DB snapshot: daily
 - [ ] `.env` encrypted backup: on every secret change
 - [ ] Restore drill: monthly
+- [ ] `nichebot backup` runs successfully
+- [ ] `nichebot restore <id>` drill completed in staging
 
 ## D) Secret rotation policy
 

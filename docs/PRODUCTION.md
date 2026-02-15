@@ -86,6 +86,14 @@ Back up:
 - `~/.nichebot/data/nichebot.db`
 - `~/.nichebot/data/logs/`
 
+CLI snapshot flow:
+
+```bash
+nichebot backup
+nichebot backup list
+nichebot restore <backup-id>
+```
+
 ## 7) Troubleshooting
 
 - `nichebot doctor --json` for machine-readable diagnostics

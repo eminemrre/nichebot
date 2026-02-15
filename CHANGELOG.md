@@ -16,12 +16,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 - 🤖 GitHub security workflow (`security.yml`) and weekly Dependabot updates
 - 🔒 Runtime single-instance lock (`~/.nichebot/nichebot.lock`) with stale-lock recovery
 - 🛑 New CLI command: `nichebot stop`
+- 💾 Runtime snapshot backups in `~/.nichebot/backups`
+- ♻️ New CLI commands: `nichebot backup`, `nichebot backup list`, `nichebot restore`
 
 ### Changed
 - Scheduler now skips auto-publish when quality score is below threshold (`QUALITY_MIN_AUTO_PUBLISH_SCORE`)
 - Setup/doctor/config flow includes prompt template and quality threshold settings
 - Production config validation now enforces Telegram token format and stricter production checks for observability/file permissions
 - Doctor report now includes runtime lock status
+- Doctor report now includes backup inventory summary
 
 ## [1.2.0] - 2026-02-15
 

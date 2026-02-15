@@ -23,12 +23,14 @@ test('runtime paths honor NICHEBOT_HOME and create required directories', () => 
         assert.equal(paths.dataDir, path.join(tmpHome, 'data'));
         assert.equal(paths.dbPath, path.join(tmpHome, 'data', 'nichebot.db'));
         assert.equal(paths.logsDir, path.join(tmpHome, 'data', 'logs'));
+        assert.equal(paths.backupsDir, path.join(tmpHome, 'backups'));
         assert.equal(paths.lockPath, path.join(tmpHome, 'nichebot.lock'));
 
         paths.ensureRuntimeDirs();
         assert.equal(fs.existsSync(paths.runtimeHome), true);
         assert.equal(fs.existsSync(paths.dataDir), true);
         assert.equal(fs.existsSync(paths.logsDir), true);
+        assert.equal(fs.existsSync(paths.backupsDir), true);
     } finally {
         clearModule('../src/runtime/paths');
         if (previousHome === undefined) {

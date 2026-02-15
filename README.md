@@ -107,6 +107,7 @@ export PATH="$(npm prefix -g)/bin:$PATH"
 - Config: `~/.nichebot/.env`
 - SQLite DB: `~/.nichebot/data/nichebot.db`
 - Logs: `~/.nichebot/data/logs/`
+- Backups: `~/.nichebot/backups/`
 - Process lock: `~/.nichebot/nichebot.lock`
 - Override runtime home: `NICHEBOT_HOME=/custom/path`
 - Prompt template version: `PROMPT_TEMPLATE_VERSION` (default `v1`)
@@ -121,6 +122,10 @@ nichebot doctor         # validation report
 nichebot doctor --json  # machine-readable report
 nichebot start          # validate + start bot
 nichebot stop           # stop running process using runtime lock
+nichebot backup         # create runtime backup snapshot
+nichebot backup list    # list backup snapshots
+nichebot restore <id>   # restore backup snapshot
+nichebot restore --latest
 ```
 
 ### Docker run
