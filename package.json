@@ -29,6 +29,7 @@
     "dev": "node --watch src/cli.js start",
     "setup": "node src/cli.js setup",
     "doctor": "node src/cli.js doctor",
+    "install:global": "node scripts/install-global.js",
     "release:notes": "node scripts/changelog-extract.js",
     "lint": "node scripts/lint.js",
     "security:scan": "node scripts/secret-scan.js",

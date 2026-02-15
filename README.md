@@ -34,7 +34,7 @@ It supports:
 ## Quick Value in 5 Minutes
 
 1. Clone and install dependencies.
-2. Run `npm link` once to enable the global `nichebot` command.
+2. Run `npm run install:global` once to enable the global `nichebot` command.
 3. Run `nichebot setup` (interactive wizard).
 4. Run `nichebot doctor` for preflight checks.
 5. Run `nichebot start`.
@@ -133,16 +133,39 @@ Full Turkish pitch/demo text: [`docs/DEMO_SALES_TR.md`](docs/DEMO_SALES_TR.md)
 git clone https://github.com/eminemrre/nichebot.git
 cd nichebot
 npm install
-npm link
+npm run install:global
 nichebot setup
 nichebot doctor
 nichebot start
 ```
 
-If `nichebot` is not found after `npm link`, add your global npm bin to `PATH`:
+If `nichebot` is not found after `npm run install:global`, reload your shell:
 
 ```bash
-export PATH="$(npm prefix -g)/bin:$PATH"
+exec "$SHELL" -l
+```
+
+Fish users can also run:
+
+```fish
+fish_add_path -g (npm prefix -g)/bin
+exec fish -l
+```
+
+Fallback (always works from repo): `npm run start`
+
+### Troubleshooting: `fish: Unknown command: nichebot`
+
+Run this once inside the repo:
+
+```bash
+npm run install:global
+```
+
+Then reload shell:
+
+```fish
+exec fish -l
 ```
 
 ### Runtime paths

@@ -42,7 +42,7 @@ render_scene 1 \
 render_scene 2 \
   "Enable Global Command" \
   "2/7 Make nichebot available from any directory" \
-  $'$ npm link\n$ nichebot help\n\nUsage: nichebot <command>\nsetup | doctor | start | stop | backup | restore | db'
+  $'$ npm run install:global\n$ nichebot help\n\nUsage: nichebot <command>\nsetup | doctor | start | stop | backup | restore | db'
 
 render_scene 3 \
   "First-Run Wizard" \
