@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>{{SERVICE_LABEL}}</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>{{NODE_PATH}}</string>
+    <string>{{CLI_PATH}}</string>
+    <string>start</string>
+  </array>
+
+  <key>WorkingDirectory</key>
+  <string>{{WORKING_DIRECTORY}}</string>
+
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NICHEBOT_HOME</key>
+    <string>{{RUNTIME_HOME}}</string>
+  </dict>
+
+  <key>RunAtLoad</key>
+  <true/>
+
+  <key>KeepAlive</key>
+  <true/>
+
+  <key>StandardOutPath</key>
+  <string>{{LOG_FILE}}</string>
+
+  <key>StandardErrorPath</key>
+  <string>{{ERROR_LOG_FILE}}</string>
+</dict>
+</plist>

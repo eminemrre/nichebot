@@ -242,3 +242,29 @@ OBSERVABILITY_PORT=9464
         ctx.cleanup();
     }
 });
+
+test('validateConfig rejects non-local observability host without token in production', () => {
+    const ctx = withConfig(`
+TELEGRAM_BOT_TOKEN=${VALID_TEST_TELEGRAM_TOKEN}
+TELEGRAM_ALLOWED_USER_ID=123456789
+LLM_PROVIDER=deepseek
+DEEPSEEK_API_KEY=test-deepseek-key
+DEFAULT_LANGUAGE=tr
+MAX_DAILY_POSTS=5
+LOG_LEVEL=info
+TZ=UTC
+NODE_ENV=production
+OBSERVABILITY_ENABLED=true
+OBSERVABILITY_HOST=10.0.0.9
+OBSERVABILITY_PORT=9464
+`);
+
+    try {
+        const result = ctx.configModule.validateConfig();
+        const codes = result.errors.map((e) => e.code);
+        assert.equal(result.valid, false);
+        assert.ok(codes.includes('OBSERVABILITY_EXPOSED_NO_TOKEN'));
+    } finally {
+        ctx.cleanup();
+    }
+});

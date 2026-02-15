@@ -3,10 +3,12 @@
 /**
  * NicheBot CLI
  * Commands:
+ *   nichebot bootstrap [options]
  *   nichebot setup
  *   nichebot doctor [--json]
  *   nichebot start
  *   nichebot stop
+ *   nichebot service <install|uninstall|start|stop|restart|status|logs|doctor> [--json]
  *   nichebot backup [list|verify|prune]
  *   nichebot restore <id|--latest>
  *   nichebot db [doctor|optimize]
@@ -39,6 +41,18 @@ const {
     pruneBackups,
 } = require('./runtime/backup');
 const { inspectDatabase, optimizeDatabase } = require('./db/maintenance');
+const { runBootstrap } = require('./runtime/bootstrap');
+const {
+    detectServicePlatform,
+    installService,
+    uninstallService,
+    startService,
+    stopService,
+    restartService,
+    statusService,
+    logsService,
+    doctorService,
+} = require('./runtime/service');
 const {
     config,
     loadEnv,
@@ -148,10 +162,12 @@ function printHelp() {
     printHeader();
     console.log('Usage: nichebot <command>\n');
     console.log('Commands:');
+    console.log('  bootstrap [opts] Bootstrap global install + setup + doctor');
     console.log('  setup           Interactive setup wizard');
     console.log('  doctor [--json] Check runtime/config status without starting the bot');
     console.log('  start           Validate config and start bot runtime');
     console.log('  stop            Stop running bot process (if lock is active)');
+    console.log('  service <cmd>   Manage background service (install/start/status/...)');
     console.log('  backup          Create runtime backup');
     console.log('  backup list     List available backups');
     console.log('  backup verify   Verify backup integrity');
@@ -160,6 +176,16 @@ function printHelp() {
     console.log('  db doctor       Check SQLite integrity and DB stats');
     console.log('  db optimize     Run checkpoint + vacuum + optimize');
     console.log('  help            Show this help');
+    console.log('');
+    console.log('Bootstrap options:');
+    console.log('  --non-interactive  Do not launch setup wizard');
+    console.log('  --skip-install     Skip install:global step');
+    console.log('  --skip-setup       Skip setup step');
+    console.log('  --skip-doctor      Skip doctor step');
+    console.log('  --json             Output machine-readable result');
+    console.log('');
+    console.log('Service commands:');
+    console.log('  install | uninstall | start | stop | restart | status | logs | doctor');
     console.log('');
     console.log('Runtime paths:');
     console.log(`  home: ${runtimeHome}`);
@@ -646,12 +672,140 @@ function getOptionValue(args, optionName) {
     return next;
 }
 
+function hasFlag(args, flag) {
+    return Array.isArray(args) && args.includes(flag);
+}
+
+function printBootstrapResult(result) {
+    printHeader();
+    console.log('Bootstrap report\n');
+    result.steps.forEach((step, index) => {
+        const mark = step.status === 'ok'
+            ? 'OK'
+            : step.status === 'skipped'
+                ? 'SKIP'
+                : 'FAIL';
+        console.log(`${index + 1}. [${mark}] ${step.name} - ${step.message}`);
+    });
+
+    if (Array.isArray(result.warnings) && result.warnings.length > 0) {
+        console.log('\nSecurity reminders:');
+        result.warnings.forEach((line, idx) => {
+            console.log(`  ${idx + 1}. ${line}`);
+        });
+    }
+
+    console.log(`\nResult: ${result.ok ? 'ready' : 'needs-fix'}`);
+    console.log(`Next: ${result.recommendation}`);
+    console.log('');
+}
+
+function printServiceStatus(status) {
+    console.log(`Platform   : ${status.platform}`);
+    console.log(`Installed  : ${status.installed ? 'yes' : 'no'}`);
+    console.log(`Running    : ${status.running ? 'yes' : 'no'}`);
+    if (typeof status.enabled === 'boolean') {
+        console.log(`Enabled    : ${status.enabled ? 'yes' : 'no'}`);
+    }
+    if (status.servicePath) {
+        console.log(`Service    : ${status.servicePath}`);
+    }
+    if (status.plistPath) {
+        console.log(`Agent      : ${status.plistPath}`);
+    }
+    if (status.taskName) {
+        console.log(`Task       : ${status.taskName}`);
+    }
+    if (status.detail) {
+        const preview = String(status.detail).trim();
+        if (preview) {
+            console.log('\nDetails:');
+            console.log(preview);
+        }
+    }
+    if (status.error) {
+        console.log(`\nError      : ${status.error}`);
+    }
+}
+
+function printServiceLogs(logs) {
+    const standardPath = logs.standard?.path || '-';
+    const errorPath = logs.errors?.path || '-';
+    console.log(`Source      : ${logs.source}`);
+    console.log(`Standard log: ${standardPath}`);
+    if (logs.standard?.exists) {
+        console.log('\n--- nichebot.log ---');
+        console.log(logs.standard.lines.join('\n') || '(empty)');
+    } else {
+        console.log('\n--- nichebot.log ---');
+        console.log('Log file not found.');
+    }
+
+    console.log(`\nError log   : ${errorPath}`);
+    if (logs.errors?.exists) {
+        console.log('--- error.log ---');
+        console.log(logs.errors.lines.join('\n') || '(empty)');
+    } else {
+        console.log('--- error.log ---');
+        console.log('Error log not found.');
+    }
+}
+
+function printServiceDoctor(report) {
+    printServiceStatus(report.service);
+    console.log('\nSecurity checks:');
+    console.log(`  env permissions  : ${report.security.checks.envPermissionsOk ? 'ok' : 'issue'}`);
+    console.log(`  allowed user id  : ${report.security.checks.allowedUserConfigured ? 'ok' : 'issue'}`);
+    console.log(`  observability    : ${report.security.checks.observabilitySafe ? 'ok' : 'issue'}`);
+    if (report.security.issues.length > 0) {
+        console.log('\nSecurity issues:');
+        report.security.issues.forEach((issue, idx) => {
+            console.log(`  ${idx + 1}. ${issue.code}: ${issue.message}`);
+        });
+    }
+}
+
+async function waitForLockRelease(timeoutMs = 10000) {
+    const waitUntil = Date.now() + timeoutMs;
+    while (Date.now() < waitUntil) {
+        const lock = getLockStatus();
+        if (!lock.active) {
+            return true;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    return false;
+}
+
 async function main() {
     const command = String(process.argv[2] || 'start').toLowerCase();
     const args = process.argv.slice(3);
 
     if (['help', '--help', '-h'].includes(command)) {
         printHelp();
+        return;
+    }
+
+    if (command === 'bootstrap') {
+        const asJson = hasFlag(args, '--json') || process.argv.includes('--json');
+        const result = await runBootstrap({
+            nonInteractive: hasFlag(args, '--non-interactive'),
+            skipInstall: hasFlag(args, '--skip-install'),
+            skipSetup: hasFlag(args, '--skip-setup'),
+            skipDoctor: hasFlag(args, '--skip-doctor'),
+            runSetupWizard,
+            canPromptUser,
+            runDoctorReport: buildDoctorReport,
+            cwd: path.resolve(__dirname, '..'),
+            env: process.env,
+        });
+
+        if (asJson) {
+            console.log(JSON.stringify(result, null, 2));
+        } else {
+            printBootstrapResult(result);
+        }
+        process.exitCode = result.ok ? 0 : 1;
         return;
     }
 
@@ -710,6 +864,127 @@ async function main() {
         }
 
         console.error(`Process ${status.pid} did not stop within timeout.`);
+        process.exitCode = 1;
+        return;
+    }
+
+    if (command === 'service') {
+        const asJson = hasFlag(args, '--json');
+        const platformOverride = getOptionValue(args, '--platform');
+        const lineCount = Number.parseInt(getOptionValue(args, '--lines') || '200', 10);
+        const serviceOptions = {
+            platform: platformOverride || process.platform,
+        };
+        const subcommand = args[0] && !args[0].startsWith('--')
+            ? String(args[0]).toLowerCase()
+            : 'status';
+
+        try {
+            if (subcommand === 'install') {
+                const result = installService(serviceOptions);
+                if (asJson) {
+                    console.log(JSON.stringify(result, null, 2));
+                } else {
+                    console.log(`Service installed for platform: ${detectServicePlatform(serviceOptions.platform)}`);
+                    printServiceStatus(statusService(serviceOptions));
+                }
+                return;
+            }
+
+            if (subcommand === 'uninstall') {
+                const result = uninstallService(serviceOptions);
+                if (asJson) {
+                    console.log(JSON.stringify(result, null, 2));
+                } else {
+                    console.log(`Service uninstalled for platform: ${detectServicePlatform(serviceOptions.platform)}`);
+                }
+                return;
+            }
+
+            if (subcommand === 'start') {
+                const lock = getLockStatus();
+                if (lock.active) {
+                    console.error(`Runtime lock is already active (pid=${lock.pid}). Stop running process before service start.`);
+                    process.exitCode = 1;
+                    return;
+                }
+
+                const result = startService(serviceOptions);
+                if (asJson) {
+                    console.log(JSON.stringify(result, null, 2));
+                } else {
+                    console.log('Service start requested.');
+                    printServiceStatus(statusService(serviceOptions));
+                }
+                return;
+            }
+
+            if (subcommand === 'stop') {
+                const result = stopService(serviceOptions);
+                const released = await waitForLockRelease(12000);
+                if (asJson) {
+                    console.log(JSON.stringify({ ...result, lockReleased: released }, null, 2));
+                } else {
+                    console.log('Service stop requested.');
+                    if (!released) {
+                        console.warn('Lock is still active after timeout. Inspect service logs/status.');
+                    }
+                    printServiceStatus(statusService(serviceOptions));
+                }
+                process.exitCode = released ? 0 : 1;
+                return;
+            }
+
+            if (subcommand === 'restart') {
+                const result = restartService(serviceOptions);
+                if (asJson) {
+                    console.log(JSON.stringify(result, null, 2));
+                } else {
+                    console.log('Service restart requested.');
+                    printServiceStatus(statusService(serviceOptions));
+                }
+                return;
+            }
+
+            if (subcommand === 'status') {
+                const status = statusService(serviceOptions);
+                if (asJson) {
+                    console.log(JSON.stringify(status, null, 2));
+                } else {
+                    printServiceStatus(status);
+                }
+                process.exitCode = status.running ? 0 : 1;
+                return;
+            }
+
+            if (subcommand === 'logs') {
+                const logs = logsService({ ...serviceOptions, lines: lineCount });
+                if (asJson) {
+                    console.log(JSON.stringify(logs, null, 2));
+                } else {
+                    printServiceLogs(logs);
+                }
+                return;
+            }
+
+            if (subcommand === 'doctor') {
+                const report = doctorService(serviceOptions);
+                if (asJson) {
+                    console.log(JSON.stringify(report, null, 2));
+                } else {
+                    printServiceDoctor(report);
+                }
+                process.exitCode = report.validation.valid ? 0 : 1;
+                return;
+            }
+        } catch (error) {
+            console.error(`Service command failed: ${error.message}`);
+            process.exitCode = 1;
+            return;
+        }
+
+        console.error(`Unknown service command: ${subcommand}`);
+        console.error('Usage: nichebot service install|uninstall|start|stop|restart|status|logs|doctor [--json] [--platform <linux|darwin|win32>] [--lines 200]');
         process.exitCode = 1;
         return;
     }

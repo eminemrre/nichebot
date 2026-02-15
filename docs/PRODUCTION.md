@@ -24,9 +24,8 @@ export NICHEBOT_HOME=/opt/nichebot
 
 ```bash
 npm install
-npm link
-nichebot setup
-nichebot doctor
+npm run install:global
+nichebot bootstrap
 ```
 
 ## 4) Hardening checklist
@@ -50,34 +49,20 @@ Foreground:
 nichebot start
 ```
 
-Systemd example (`/etc/systemd/system/nichebot.service`):
-
-```ini
-[Unit]
-Description=NicheBot Service
-After=network.target
-
-[Service]
-Type=simple
-User=emin
-WorkingDirectory=/home/emin/nichebot
-Environment=NICHEBOT_HOME=/home/emin/.nichebot
-ExecStart=/home/emin/.npm-global/bin/nichebot start
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable:
+Background service (cross-platform):
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable nichebot
-sudo systemctl start nichebot
-sudo systemctl status nichebot
+nichebot service install
+nichebot service start
+nichebot service status
+nichebot service logs
 ```
+
+Service backends:
+
+- Linux: systemd user service (`~/.config/systemd/user/nichebot.service`)
+- macOS: launchd agent (`~/Library/LaunchAgents/com.nichebot.agent.plist`)
+- Windows: Task Scheduler task (`NicheBot`)
 
 ## 6) Backup
 
@@ -100,6 +85,8 @@ nichebot restore <backup-id>
 ## 7) Troubleshooting
 
 - `nichebot doctor --json` for machine-readable diagnostics
+- `nichebot bootstrap --json` for full onboarding step report
+- `nichebot service doctor --json` for service + security checks
 - `nichebot db doctor --json` for SQLite integrity and storage stats
 - `nichebot db optimize` for checkpoint + vacuum maintenance (only when bot is stopped)
 - 401 Telegram error usually means wrong `TELEGRAM_BOT_TOKEN`

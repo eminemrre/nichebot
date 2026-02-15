@@ -17,22 +17,24 @@ Use this checklist before and after every production deployment.
 - [ ] Runtime lock file is present during run (`~/.nichebot/nichebot.lock`)
 - [ ] `nichebot db doctor --json` returns healthy DB state
 
-## B) Service setup (systemd)
+## B) Service setup (cross-platform)
 
-- [ ] Service file exists at `/etc/systemd/system/nichebot.service`
-- [ ] `ExecStart` points to global binary (`.../nichebot start`)
+- [ ] Service installed via `nichebot service install`
+- [ ] Service backend matches platform (Linux/macOS/Windows)
 - [ ] `NICHEBOT_HOME` is set explicitly in service environment
-- [ ] Restart policy is enabled (`Restart=always`)
-- [ ] Service enabled on boot
+- [ ] Service auto-start on login/boot is enabled
+- [ ] `nichebot service status` reports installed/running state
 
 Commands:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable nichebot
-sudo systemctl restart nichebot
-sudo systemctl status nichebot
-journalctl -u nichebot -f
+nichebot service install
+nichebot service start
+nichebot service status
+nichebot service logs
+nichebot service doctor --json
+nichebot service stop
+nichebot service uninstall
 ```
 
 ## C) Backup policy

@@ -45,18 +45,18 @@ render_scene 2 \
   $'$ npm run install:global\n$ nichebot help\n\nUsage: nichebot <command>\nsetup | doctor | start | stop | backup | restore | db'
 
 render_scene 3 \
-  "First-Run Wizard" \
-  "3/7 Configure runtime in ~/.nichebot/.env" \
-  $'$ nichebot setup\n? Language: tr\n? TELEGRAM_BOT_TOKEN: 123456:***\n? TELEGRAM_ALLOWED_USER_ID: 123456789\n? Provider: deepseek\n? DEEPSEEK_API_KEY: ***\n\nSaved: ~/.nichebot/.env'
+  "Bootstrap Onboarding" \
+  "3/7 One command: install check + setup + doctor" \
+  $'$ nichebot bootstrap\n[OK] install: global command ready\n[OK] setup: runtime config created\n[OK] doctor: preflight passed\n\nNext: nichebot start'
 
 render_scene 4 \
-  "Preflight Validation" \
-  "4/7 Check config and runtime health" \
-  $'$ nichebot doctor\n\nruntime.home: ~/.nichebot\nconfig.valid: true\ntelegram.allowed_user: set\nbackup.latest.integrity: ok\nlock.active: false'
+  "Service Mode (Cross-Platform)" \
+  "4/7 Install and start as background service" \
+  $'$ nichebot service install\n$ nichebot service start\n$ nichebot service status\n\ninstalled: yes\nrunning: yes\nenabled: yes'
 
 render_scene 5 \
-  "Start Bot Runtime" \
-  "5/7 Start polling and wait for Telegram commands" \
+  "Foreground Runtime" \
+  "5/7 Optional foreground start for direct logs" \
   $'$ nichebot start\n\nTelegram bot started\nObservability server started\nWaiting for commands...'
 
 render_scene 6 \

@@ -34,6 +34,7 @@
     "lint": "node scripts/lint.js",
     "security:scan": "node scripts/secret-scan.js",
     "security:audit": "node scripts/security-audit.js",
+    "security:install-hook": "node scripts/install-security-hook.js",
     "security:full": "npm run security:scan && npm run security:audit",
     "release:check": "node scripts/release-check.js",
     "test": "node --test test/*.test.js",

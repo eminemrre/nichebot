@@ -35,9 +35,8 @@ It supports:
 
 1. Clone and install dependencies.
 2. Run `npm run install:global` once to enable the global `nichebot` command.
-3. Run `nichebot setup` (interactive wizard).
-4. Run `nichebot doctor` for preflight checks.
-5. Run `nichebot start`.
+3. Run `nichebot bootstrap` (install check + setup + doctor).
+4. Run `nichebot start`.
 
 ## Showcase: Full Setup Demo
 
@@ -49,11 +48,10 @@ It supports:
 
 ![NicheBot Telegram command flow screenshot](docs/assets/nichebot-telegram-showcase.svg)
 
-`00:00 - 00:40` First-run setup and preflight:
+`00:00 - 00:40` First-run bootstrap and preflight:
 
 ```bash
-nichebot setup
-nichebot doctor
+nichebot bootstrap
 ```
 
 `00:40 - 01:20` Telegram content generation:
@@ -134,8 +132,7 @@ git clone https://github.com/eminemrre/nichebot.git
 cd nichebot
 npm install
 npm run install:global
-nichebot setup
-nichebot doctor
+nichebot bootstrap
 nichebot start
 ```
 
@@ -168,6 +165,12 @@ Then reload shell:
 exec fish -l
 ```
 
+Optional local secret-scan pre-commit hook:
+
+```bash
+npm run security:install-hook
+```
+
 ### Runtime paths
 
 - Config: `~/.nichebot/.env`
@@ -183,11 +186,18 @@ exec fish -l
 
 ```bash
 nichebot                # alias: nichebot start
+nichebot bootstrap      # install check + setup + doctor
 nichebot setup          # interactive setup wizard
 nichebot doctor         # validation report
 nichebot doctor --json  # machine-readable report
 nichebot start          # validate + start bot
 nichebot stop           # stop running process using runtime lock
+nichebot service install
+nichebot service start
+nichebot service status
+nichebot service logs
+nichebot service stop
+nichebot service uninstall
 nichebot backup         # create runtime backup snapshot
 nichebot backup list    # list backup snapshots
 nichebot backup verify <id>
@@ -198,6 +208,14 @@ nichebot restore --latest
 nichebot db doctor      # sqlite integrity and runtime DB stats
 nichebot db optimize    # checkpoint + vacuum + optimize
 ```
+
+### Service platform map
+
+| Platform | Backend | Install target |
+|---|---|---|
+| Linux | systemd user service | `~/.config/systemd/user/nichebot.service` |
+| macOS | launchd agent | `~/Library/LaunchAgents/com.nichebot.agent.plist` |
+| Windows | Task Scheduler | `NicheBot` user task |
 
 ### Docker run
 

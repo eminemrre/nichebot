@@ -1,0 +1,17 @@
+[Unit]
+Description=NicheBot User Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory={{WORKING_DIRECTORY}}
+Environment=NICHEBOT_HOME={{RUNTIME_HOME}}
+ExecStart={{NODE_PATH}} {{CLI_PATH}} start
+Restart=always
+RestartSec=5
+KillSignal=SIGTERM
+TimeoutStopSec=20
+
+[Install]
+WantedBy=default.target

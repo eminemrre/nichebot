@@ -54,6 +54,12 @@ function parseInteger(rawValue, defaultValue) {
     return parsed;
 }
 
+function isLocalObservabilityHost(host) {
+    const normalized = String(host || '').trim().toLowerCase();
+    if (!normalized) return true;
+    return normalized === '127.0.0.1' || normalized === 'localhost' || normalized === '::1';
+}
+
 function getFileModeOctal(filePath) {
     if (process.platform === 'win32') return null;
     try {
@@ -252,12 +258,12 @@ function validateConfig() {
         });
     }
 
-    if (obs.enabled && obs.host === '0.0.0.0' && !obs.token) {
+    if (obs.enabled && !isLocalObservabilityHost(obs.host) && !obs.token) {
         addIssue(currentConfig.nodeEnv === 'production' ? errors : warnings, {
             code: 'OBSERVABILITY_EXPOSED_NO_TOKEN',
             field: 'OBSERVABILITY_TOKEN',
-            message: 'Observability is exposed on 0.0.0.0 without OBSERVABILITY_TOKEN.',
-            fix: 'Set OBSERVABILITY_TOKEN or bind OBSERVABILITY_HOST to 127.0.0.1.',
+            message: `Observability is exposed on "${obs.host}" without OBSERVABILITY_TOKEN.`,
+            fix: 'Set OBSERVABILITY_TOKEN or bind OBSERVABILITY_HOST to 127.0.0.1/localhost.',
         });
     }
 
