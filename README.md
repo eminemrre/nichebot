@@ -129,10 +129,13 @@ docker compose logs -f
 ```bash
 npm run lint
 npm test
+npm run test:e2e
 npm run quality
+npm run quality:full
 ```
 
 - CI runs on Node 18 and Node 20.
+- E2E suite uses Telegram/Twitter mocks and exercises real command flows.
 - PR template, issue templates, and workflow checks are included.
 - Production runbook: [`docs/PRODUCTION.md`](docs/PRODUCTION.md)
 - Production checklist: [`docs/PRODUCTION_CHECKLIST.md`](docs/PRODUCTION_CHECKLIST.md)

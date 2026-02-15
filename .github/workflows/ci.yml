@@ -34,3 +34,6 @@ jobs:
 
       - name: Test
         run: npm test
+
+      - name: E2E (mocked)
+        run: npm run test:e2e

@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/).
 
 ### Added
 - ✅ Native test suite (`node:test`) for config, runtime paths, CLI doctor, and helper utilities
+- ✅ Mocked E2E test suite for Telegram/Twitter command flows (`test/e2e/bot-flow.test.js`)
 - 🧪 Quality scripts: `npm run lint`, `npm test`, `npm run quality`
 - ⚙️ GitHub Actions CI pipeline (Node 18 + 20)
 - 🗂 GitHub Issue templates and PR template

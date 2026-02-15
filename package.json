@@ -30,8 +30,10 @@
     "setup": "node src/cli.js setup",
     "doctor": "node src/cli.js doctor",
     "lint": "node scripts/lint.js",
-    "test": "node --test",
-    "quality": "npm run lint && npm run test"
+    "test": "node --test test/*.test.js",
+    "test:e2e": "node --test test/e2e/*.test.js",
+    "quality": "npm run lint && npm run test",
+    "quality:full": "npm run lint && npm run test && npm run test:e2e"
   },
   "keywords": [
     "ai",
