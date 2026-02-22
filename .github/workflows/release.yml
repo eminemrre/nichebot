@@ -46,7 +46,7 @@ jobs:
         run: node scripts/changelog-extract.js "${GITHUB_REF_NAME#v}" > release-notes.md
 
       - name: Upload release notes
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: release-notes
           path: release-notes.md
